@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .page-hero { background:#FF8000;color:#fff;border-radius:16px;padding:24px 28px;margin-bottom:24px; }
+  .sec-card { background:#fff;border-radius:14px;box-shadow:0 1px 5px rgba(0,0,0,.07);overflow:hidden; }
+  .sec-header { padding:14px 20px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between; }
+  .sec-title { font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;font-weight:800;color:#6b7280;margin:0; }
+  .scroll-y { max-height:520px;overflow-y:auto; }
+  .table th { font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:#9ca3af;font-weight:700; }
+  .table td { font-size:.84rem;vertical-align:middle; }
+  .btn-orange { background:#FF8000!important;border-color:#FF8000!important;color:#fff!important; }
+  .btn-orange:hover { background:#e07000!important;border-color:#e07000!important; }
+  .s-open   { background:#d1fae5;color:#065f46;border-radius:20px;padding:2px 10px;font-size:.72rem;font-weight:700;white-space:nowrap; }
+  .s-closed { background:#fee2e2;color:#991b1b;border-radius:20px;padding:2px 10px;font-size:.72rem;font-weight:700;white-space:nowrap; }
+</style>
+
+<!-- Hero -->
+<div class="page-hero">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div>
+      <h5 class="fw-bold mb-1">Managed Stores</h5>
+      <p class="mb-0" style="color:rgba(255,255,255,.85);font-size:.85rem;">
+        SokoShopper &middot; {{ stores|length }} stores registered
+      </p>
+    </div>
+    <button class="btn btn-sm py-2 px-4 fw-semibold"
+            style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:10px;"
+            data-bs-toggle="modal" data-bs-target="#addStoreModal">
+      <i class="bi bi-plus-lg me-1"></i>Add New Store
+    </button>
+  </div>
+</div>
+
+<!-- Stores table -->
+<div class="sec-card">
+  <div class="sec-header">
+    <span class="sec-title">All Stores ({{ stores|length }})</span>
+  </div>
+  <div class="scroll-y">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light" style="position:sticky;top:0;z-index:2;">
+        <tr>
+          <th class="ps-3">Logo</th>
+          <th>Store Name</th>
+          <th>Category</th>
+          <th>Address</th>
+          <th class="text-center">Status</th>
+          <th class="pe-3 text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for store in stores %}
+        <tr>
+          <td class="ps-3">
+            {% if store.logo_url %}
+            <img src="{{ resolve_media(store.logo_url) }}" class="rounded-2"
+                 style="width:40px;height:40px;object-fit:cover;"
+                 onerror="this.src='https://placehold.co/40x40?text=?'">
+            {% else %}
+            <div class="bg-light rounded-2 d-flex align-items-center justify-content-center" style="width:40px;height:40px;">
+              <i class="bi bi-shop text-muted"></i>
+            </div>
+            {% endif %}
+          </td>
+          <td>
+            <div class="fw-semibold">{{ store.name }}</div>
+            {% if store.description %}
+            <div class="text-muted small text-truncate" style="max-width:200px;">{{ store.description }}</div>
+            {% endif %}
+          </td>
+          <td class="small text-muted">{{ store.category.name if store.category else '—' }}</td>
+          <td class="small text-muted">
+            {{ store.address }}{% if store.city %}, {{ store.city }}{% endif %}
+          </td>
+          <td class="text-center">
+            {% if store.is_open %}
+            <span class="s-open">● Open</span>
+            {% else %}
+            <span class="s-closed">● Closed</span>
+            {% endif %}
+          </td>
+          <td class="pe-3 text-end">
+            <div class="d-flex gap-2 justify-content-end">
+              <a href="{{ url_for('shopper.manage_store', id=store.id) }}"
+                 class="btn btn-sm btn-orange px-3">
+                <i class="bi bi-box-seam me-1"></i>Manage
+              </a>
+              <form action="{{ url_for('shopper.delete_store', id=store.id) }}" method="POST"
+                    onsubmit="return confirm('Permanently delete \'{{ store.name }}\'? This cannot be undone.')">
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="text-center py-5 text-muted">
+            <i class="bi bi-shop fs-2 d-block mb-2"></i>No stores yet. Add one to get started.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Add Store Modal -->
+<div class="modal fade" id="addStoreModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 shadow rounded-4">
+      <div class="modal-header pt-4 px-4" style="border-bottom:2px solid #FF8000;">
+        <h5 class="modal-title fw-bold">Add New Store</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form action="{{ url_for('shopper.add_store') }}" method="POST">
+        <div class="modal-body px-4">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label small fw-bold text-uppercase text-muted">Store Name *</label>
+              <input type="text" name="name" class="form-control" placeholder="e.g. Soko Fresh Market" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-bold text-uppercase text-muted">Description</label>
+              <textarea name="description" class="form-control" rows="2" placeholder="Describe the store..."></textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-uppercase text-muted">Category *</label>
+              <select name="category_id" class="form-select" required>
+                <option value="" disabled selected>Select category</option>
+                {% for cat in categories %}
+                <option value="{{ cat.id }}">{{ cat.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-uppercase text-muted">Owner *</label>
+              <select name="owner_user_id" class="form-select" required>
+                <option value="" disabled selected>Select owner</option>
+                {% for u in users %}
+                <option value="{{ u.id }}">{{ u.full_name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-uppercase text-muted">Email</label>
+              <input type="email" name="email" class="form-control" placeholder="store@example.com">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-uppercase text-muted">Phone</label>
+              <input type="tel" name="phone_number" class="form-control" placeholder="+233...">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-uppercase text-muted">City</label>
+              <input type="text" name="city" class="form-control" placeholder="Accra">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-uppercase text-muted">Address *</label>
+              <input type="text" name="address" class="form-control" placeholder="Street address" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-uppercase text-muted">Delivery Fee (GHS)</label>
+              <input type="number" step="0.01" name="delivery_fee" class="form-control" value="0.00">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-uppercase text-muted">Min Order (GHS)</label>
+              <input type="number" step="0.01" name="min_order_amount" class="form-control" value="0.00">
+            </div>
+            <div class="col-12 mb-2">
+              <label class="form-label small fw-bold text-uppercase text-muted">Store Logo / Cover Image</label>
+              <div class="input-group mb-2">
+                <input type="file" class="form-control imageUploadFile" accept="image/*" data-bucket="store-logos">
+                <button class="btn btn-sm btn-orange uploadBtn" type="button">Upload</button>
+              </div>
+              <input type="text" name="logo_url" class="form-control form-control-sm imageUrlInput"
+                     placeholder="Path will appear after upload">
+              <div class="uploadStatus small mt-1"></div>
+              <div class="mt-2 text-center image-preview"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pb-4 px-4">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-orange px-4">Create Store</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE_URL = "{{ API_BASE_URL }}";
+const BACKEND_JWT  = "{{ BACKEND_TOKEN }}";
+
+document.addEventListener('click', async (e) => {
+  if (!e.target.classList.contains('uploadBtn')) return;
+  const btn       = e.target;
+  const container = btn.closest('.col-12, .mb-3');
+  const fileInput = container?.querySelector('.imageUploadFile, .productImageFile');
+  const status    = container?.querySelector('.uploadStatus');
+  const urlInput  = container?.querySelector('.imageUrlInput, .productImageUrl');
+  const preview   = container?.querySelector('.image-preview, .current-preview');
+  const bucket    = fileInput?.dataset.bucket || 'products';
+  if (!fileInput?.files?.length) {
+    if (status) status.innerHTML = '<span class="text-danger">Select a file first.</span>'; return;
+  }
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  formData.append('bucket', bucket);
+  try {
+    if (status) status.textContent = 'Uploading…';
+    btn.disabled = true;
+    const res    = await fetch(`${API_BASE_URL}/api/v1/media/upload`, {
+      method: 'POST',
+      headers: BACKEND_JWT ? { Authorization: `Bearer ${BACKEND_JWT}` } : {},
+      body: formData,
+    });
+    const result = await res.json();
+    if (res.ok) {
+      if (urlInput) urlInput.value = result.path;
+      if (status) status.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> Uploaded!</span>';
+      if (preview) {
+        let img = preview.querySelector('img');
+        if (!img) { img = document.createElement('img'); img.className = 'rounded shadow-sm'; img.style.maxHeight = '100px'; preview.appendChild(img); }
+        img.src = result.url;
+      }
+    } else {
+      if (status) status.innerHTML = `<span class="text-danger">Upload failed: ${result.error || 'Server error'}</span>`;
+    }
+  } catch (err) {
+    if (status) status.innerHTML = `<span class="text-danger">Network error: ${err.message}</span>`;
+  } finally { btn.disabled = false; }
+});
+</script>
+{% endblock %}

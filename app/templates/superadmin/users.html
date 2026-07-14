@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .page-hero { background:#FF8000;color:#fff;border-radius:16px;padding:24px 28px;margin-bottom:24px; }
+  .btn-orange { background:#FF8000!important;border-color:#FF8000!important;color:#fff!important; }
+  .btn-orange:hover { background:#e07000!important;border-color:#e07000!important; }
+  .btn-outline-orange { border:1px solid #FF8000!important;color:#FF8000!important;background:transparent!important; }
+  .btn-outline-orange:hover { background:#FF8000!important;color:#fff!important; }
+  .sec-label { font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;font-weight:800;color:#FF8000;border-left:3px solid #FF8000;padding-left:8px;margin-bottom:12px; }
+  .scroll-y { max-height:540px;overflow-y:auto; }
+  .table th { font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:#9ca3af;font-weight:700; }
+  .table td { font-size:.84rem;vertical-align:middle; }
+</style>
+
+<div class="page-hero">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div>
+      <h5 class="fw-bold mb-1">User Directory</h5>
+      <p class="mb-0" style="color:rgba(255,255,255,.85);font-size:.85rem;">
+        sokoaccount &middot; {{ users|length }} users registered
+      </p>
+    </div>
+    <span class="badge rounded-pill" style="background:rgba(255,255,255,.2);color:#fff;font-size:.8rem;padding:6px 14px;">
+      <i class="bi bi-people me-1"></i>{{ users|length }} total
+    </span>
+  </div>
+</div>
+
+<div class="bg-white rounded-3 shadow-sm overflow-hidden">
+    <div class="scroll-y">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light text-secondary small text-uppercase">
+                    <tr>
+                        <th class="ps-4 py-3">User Details</th>
+                        <th class="py-3">Contact</th>
+                        <th class="py-3 text-center">Joined</th>
+                        <th class="pe-4 py-3 text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="border-top-0">
+                    {% for user in users %}
+                    <tr>
+                        <td class="ps-4 py-3">
+                            <div class="d-flex align-items-center">
+                                {% if user.profile_image_url %}
+                                <img src="{{ resolve_media(user.profile_image_url) }}"
+                                     class="rounded-circle me-3 border border-light shadow-sm" style="width: 40px; height: 40px; object-fit: cover;"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                {% endif %}
+                                <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center me-3" 
+                                     style="width: 40px; height: 40px; {% if user.profile_image_url %}display: none;{% endif %}">
+                                    {{ user.full_name[0] }}
+                                </div>
+                                <div>
+                                    <div class="fw-bold">{{ user.full_name }}</div>
+                                    <div class="text-muted small">ID: {{ user.id|string|truncate(12) }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="small fw-semibold"><i class="bi bi-envelope me-1"></i> {{ user.email }}</div>
+                            <div class="small text-muted mt-1"><i class="bi bi-telephone me-1"></i> {{ user.phone_number }}</div>
+                        </td>
+                        <td class="small text-center">{{ user.created_at.strftime('%b %d, %Y') }}</td>
+                        <td class="pe-4 text-end">
+                            <button class="btn btn-sm btn-outline-orange px-3 rounded-pill"
+                                data-bs-toggle="modal" 
+                                data-bs-target="#userModal"
+                                data-user-id="{{ user.id }}"
+                                data-full-name="{{ user.full_name }}"
+                                data-email="{{ user.email }}"
+                                data-phone="{{ user.phone_number }}"
+                                data-is-active="{{ 'true' if user.is_active else 'false' }}"
+                                data-is-email-verified="{{ 'true' if user.is_email_verified else 'false' }}"
+                                data-is-phone-verified="{{ 'true' if user.is_phone_verified else 'false' }}"
+                                data-gender="{{ user.gender if user.gender else '' }}"
+                                data-dob="{{ user.date_of_birth.strftime('%Y-%m-%d') if user.date_of_birth else '' }}"
+                                data-profile-img="{{ user.profile_image_url if user.profile_image_url else '' }}"
+                                data-kyc-status="{{ user.kyc.status if user.kyc else 'None' }}"
+                                data-kyc-id="{{ user.id }}"
+                                data-kyc-details="{{ user.kyc.id_type }} | {{ user.kyc.id_number }} | {{ user.kyc.address }}, {{ user.kyc.city }}, {{ user.kyc.country }}"
+                                data-kyc-image="{{ user.kyc.id_image_url if user.kyc and user.kyc.id_image_url else '' }}"
+                                data-kyc-docs='[{% for doc in user.kyc.documents %}{"type": "{{ doc.document_type }}", "url": "{{ doc.file_url }}"}{% if not loop.last %},{% endif %}{% endfor %}]'
+                                data-driver-status="{{ user.driver_profile.status if user.driver_profile else 'None' }}"
+                                data-driver-id="{{ user.id }}"
+                                data-driver-vehicle="{{ user.driver_profile.vehicle_type }} - {{ user.driver_profile.vehicle_model }} ({{ user.driver_profile.vehicle_plate }})"
+                                data-driver-stats="Rating: {{ user.driver_profile.rating }} | Deliveries: {{ user.driver_profile.total_deliveries }}"
+                                data-driver-license="{{ user.driver_profile.license_number }}"
+                            >View Profile</button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center py-5 text-muted">No users found in database.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Profile Modal -->
+<div class="modal fade" id="userModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-bottom-0 pt-4 px-4">
+                <h5 class="fw-bold mb-0">User Management</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body px-4 pb-4">
+                <div class="text-center mb-4">
+                    <img id="modalProfileImg" src="" class="rounded-circle border border-3 border-light shadow-sm mb-3 mx-auto d-block"
+                         style="width: 100px; height: 100px; object-fit: cover; display: none;">
+                    <div id="modalProfileFallback" class="rounded-circle mx-auto d-flex align-items-center justify-content-center fw-bold shadow-sm mb-3"
+                         style="width:100px;height:100px;font-size:2.5rem;background:#FF8000;color:#fff;"></div>
+                </div>
+
+                <!-- User Info Form (CRUD: Update) -->
+                <form id="updateUserForm" method="POST">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-uppercase small fw-bold text-muted mb-0">Account Details</h6>
+                        <div id="modalAccountBadges"></div>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small">Full Name</label>
+                            <input type="text" name="full_name" id="modalFullName" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">Email Address</label>
+                            <input type="email" name="email" id="modalEmail" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">Phone Number</label>
+                            <input type="text" name="phone_number" id="modalPhone" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">Gender</label>
+                            <select name="gender" id="modalGender" class="form-select">
+                                <option value="">Not Specified</option>
+                                <option value="male">Male</option>
+                                <option value="female">Female</option>
+                                <option value="other">Other</option>
+                                <option value="prefer_not_to_say">Prefer not to say</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">Date of Birth</label>
+                            <input type="date" name="date_of_birth" id="modalDob" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small">Account Status</label>
+                            <select name="is_active" id="modalIsActive" class="form-select">
+                                <option value="true">Active</option>
+                                <option value="false">Suspended / Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="d-flex gap-2 mb-4">
+                        <button type="submit" class="btn btn-orange flex-grow-1">Save Changes</button>
+                        <button type="button" class="btn btn-outline-danger" onclick="confirmDelete()">
+                            <i class="bi bi-trash"></i> Delete User
+                        </button>
+                    </div>
+                </form>
+
+                <form id="deleteUserForm" method="POST" style="display: none;"></form>
+
+                <hr class="my-4">
+
+                <div class="row">
+                    <!-- KYC Section -->
+                    <div class="col-md-6">
+                        <div class="sec-label">KYC Status</div>
+                        <div id="kycStatusBox" class="p-3 rounded-3 bg-light mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span id="modalKycStatus" class="badge rounded-pill mb-2"></span>
+                            </div>
+                            <div id="modalKycDetails" class="small text-muted mb-2"></div>
+                            <div id="modalKycDocs" class="d-flex gap-2 flex-wrap"></div>
+                        </div>
+                        <div id="kycActions" class="d-flex gap-2" style="display: none;">
+                            <form id="approveKycForm" method="POST" class="flex-grow-1">
+                                <button type="submit" class="btn btn-sm btn-success w-100">Approve KYC</button>
+                            </form>
+                            <form id="rejectKycForm" method="POST" class="flex-grow-1">
+                                <button type="submit" class="btn btn-sm btn-outline-danger w-100">Reject</button>
+                            </form>
+                            <form id="deleteKycForm" method="POST" class="flex-grow-1" style="display:none;">
+                                <button type="submit" class="btn btn-sm btn-link text-danger w-100">Reset</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Driver Section -->
+                    <div class="col-md-6 border-start">
+                        <div class="sec-label">Driver Application</div>
+                        <div id="driverStatusBox" class="p-3 rounded-3 bg-light mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span id="modalDriverStatus" class="badge rounded-pill"></span>
+                            </div>
+                            <div id="modalDriverVehicle" class="small fw-bold"></div>
+                            <div id="modalDriverStats" class="small text-success mb-1"></div>
+                            <div id="modalDriverLicense" class="small text-muted"></div>
+                        </div>
+                        <div id="driverActions" class="d-flex gap-2" style="display: none;">
+                            <form id="approveDriverForm" method="POST" class="flex-grow-1">
+                                <button type="submit" class="btn btn-sm btn-success w-100">Approve Driver</button>
+                            </form>
+                            <form id="rejectDriverForm" method="POST" class="flex-grow-1">
+                                <button type="submit" class="btn btn-sm btn-warning w-100">Reject</button>
+                            </form>
+                            <form id="suspendDriverForm" method="POST" class="flex-grow-1">
+                                <button type="submit" class="btn btn-sm btn-danger w-100">Suspend</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const API_BASE_URL = "{{ API_BASE_URL }}";
+const BACKEND_JWT = "{{ BACKEND_TOKEN }}";
+const MEDIA_ENDPOINT = "/api/v1/media/serve/";
+
+console.log('API_BASE_URL:', API_BASE_URL);
+console.log('BACKEND_JWT:', BACKEND_JWT ? 'Token present ✓' : 'Token MISSING ✗');
+
+function confirmDelete() {
+    if (confirm("Are you sure you want to PERMANENTLY delete this user? This cannot be undone.")) {
+        document.getElementById('deleteUserForm').submit();
+    }
+}
+
+document.getElementById('userModal').addEventListener('show.bs.modal', function (event) {
+    const btn = event.relatedTarget;
+    
+    // Extract data
+    const userId = btn.getAttribute('data-user-id');
+    const fullName = btn.getAttribute('data-full-name');
+    const email = btn.getAttribute('data-email');
+    const profileImg = btn.getAttribute('data-profile-img');
+    
+    // Fill inputs
+    document.getElementById('modalFullName').value = fullName;
+    document.getElementById('modalEmail').value = btn.getAttribute('data-email');
+    document.getElementById('modalPhone').value = btn.getAttribute('data-phone');
+    document.getElementById('modalGender').value = btn.getAttribute('data-gender');
+    document.getElementById('modalDob').value = btn.getAttribute('data-dob');
+    document.getElementById('modalIsActive').value = btn.getAttribute('data-is-active');
+
+    // Account Badges Logic
+    const badgesEl = document.getElementById('modalAccountBadges');
+    const emailVer = btn.getAttribute('data-is-email-verified') === 'true';
+    const phoneVer = btn.getAttribute('data-is-phone-verified') === 'true';
+    badgesEl.innerHTML = `
+        ${emailVer ? '<span class="badge bg-success-subtle text-success me-1"><i class="bi bi-envelope-check"></i></span>' : '<span class="badge bg-light text-muted me-1"><i class="bi bi-envelope"></i></span>'}
+        ${phoneVer ? '<span class="badge bg-success-subtle text-success"><i class="bi bi-phone-vibrate"></i></span>' : '<span class="badge bg-light text-muted"><i class="bi bi-phone"></i></span>'}
+    `;
+
+    // Profile Image Logic
+    const imgEl = document.getElementById('modalProfileImg');
+    const fallbackEl = document.getElementById('modalProfileFallback');
+    if (profileImg) {
+        const cleanPath = profileImg.startsWith('/') ? profileImg.substring(1) : profileImg;
+        imgEl.src = profileImg.startsWith('http') ? profileImg : `${API_BASE_URL}${MEDIA_ENDPOINT}${cleanPath}`;
+        imgEl.style.display = 'block'; fallbackEl.style.display = 'none';
+    } else {
+        fallbackEl.textContent = fullName[0]; imgEl.style.display = 'none'; fallbackEl.style.display = 'flex';
+    }
+    
+    // Set form actions
+    document.getElementById('updateUserForm').action = `/account/users/${userId}/update`;
+    
+    document.getElementById('deleteUserForm').action = `/account/users/${userId}/delete`;
+    // Inside your showUserModal() or wherever you populate the modal
+function showUserModal(userId) {
+    const user = usersData[userId]; // however you're indexing your users
+
+    // --- KYC ---
+    const kyc = user.kyc; // may be null
+
+    const kycStatusBox = document.getElementById('kycStatusBox');
+    const kycStatusBadge = document.getElementById('modalKycStatus');
+    const kycDetails = document.getElementById('modalKycDetails');
+    const kycDocs = document.getElementById('modalKycDocs');
+    const kycActions = document.getElementById('kycActions');
+    const approveKycForm = document.getElementById('approveKycForm');
+    const rejectKycForm = document.getElementById('rejectKycForm');
+
+    if (!kyc) {
+        kycStatusBadge.className = 'badge rounded-pill bg-secondary mb-2';
+        kycStatusBadge.textContent = 'Not Submitted';
+        kycDetails.textContent = 'This user has not submitted KYC documents.';
+        kycDocs.innerHTML = '';
+        kycActions.style.display = 'none';
+    } else {
+        // Badge color
+        const statusColors = { approved: 'bg-success', pending: 'bg-warning text-dark', rejected: 'bg-danger' };
+        kycStatusBadge.className = `badge rounded-pill mb-2 ${statusColors[kyc.status] || 'bg-secondary'}`;
+        kycStatusBadge.textContent = kyc.status.charAt(0).toUpperCase() + kyc.status.slice(1);
+
+        // Details
+        kycDetails.innerHTML = `
+            <div><strong>ID Type:</strong> ${kyc.id_type || '—'}</div>
+            <div><strong>ID Number:</strong> ${kyc.id_number || '—'}</div>
+            <div><strong>Submitted:</strong> ${kyc.submitted_at ? new Date(kyc.submitted_at).toLocaleDateString() : '—'}</div>
+        `;
+
+        // Documents
+        kycDocs.innerHTML = '';
+        (kyc.documents || []).forEach((doc, i) => {
+            const a = document.createElement('a');
+            a.href = doc.file_url;
+            a.target = '_blank';
+            a.className = 'btn btn-sm btn-outline-secondary';
+            a.innerHTML = `<i class="bi bi-file-earmark-image me-1"></i>Doc ${i + 1} (${doc.doc_type || 'file'})`;
+            kycDocs.appendChild(a);
+        });
+        if (!kyc.documents || kyc.documents.length === 0) {
+            kycDocs.innerHTML = '<span class="text-muted small">No documents uploaded.</span>';
+        }
+
+        // Show approve/reject only when pending
+        if (kyc.status === 'pending') {
+            kycActions.style.removeProperty('display');
+            approveKycForm.action = `/kyc/${user.id}/approve`;
+            rejectKycForm.action = `/kyc/${user.id}/reject`;
+        } else {
+            kycActions.style.display = 'none';
+        }
+    }
+}
+    
+    // KYC Logic
+    const kycStatus = btn.getAttribute('data-kyc-status');
+    const kycDetails = btn.getAttribute('data-kyc-details');
+    const kycDocs = JSON.parse(btn.getAttribute('data-kyc-docs') || '[]');
+    
+    const kycId = btn.getAttribute('data-kyc-id');
+    const kycBadge = document.getElementById('modalKycStatus');
+    const kycDetailsEl = document.getElementById('modalKycDetails');
+    const kycDocsEl = document.getElementById('modalKycDocs');
+
+    kycBadge.textContent = kycStatus;
+    kycBadge.className = 'badge rounded-pill ' + (kycStatus === 'approved' ? 'bg-success' : kycStatus === 'pending' ? 'bg-warning' : 'bg-secondary');
+    kycDetailsEl.textContent = kycDetails !== ' |  | , ' ? kycDetails : 'No details provided';
+    
+    kycDocsEl.innerHTML = '';
+    // Show KYC ID image if available
+    const kycImage = btn.getAttribute('data-kyc-image');
+    if (kycImage) {
+        const cleanImgPath = kycImage.startsWith('/') ? kycImage.substring(1) : kycImage;
+        const imgUrl = kycImage.startsWith('http') ? kycImage : `${API_BASE_URL}${MEDIA_ENDPOINT}${cleanImgPath}`;
+        const imgWrap = document.createElement('a');
+        imgWrap.href = imgUrl;
+        imgWrap.target = '_blank';
+        imgWrap.rel = 'noopener';
+        imgWrap.innerHTML = `<img src="${imgUrl}" style="height:60px;width:96px;object-fit:cover;border-radius:6px;border:1px solid #dee2e6;" alt="ID Image">`;
+        kycDocsEl.appendChild(imgWrap);
+    }
+    kycDocs.forEach(doc => {
+        const cleanDocPath = doc.url.startsWith('/') ? doc.url.substring(1) : doc.url;
+        const link = document.createElement('a');
+        link.href = doc.url.startsWith('http') ? doc.url : `${API_BASE_URL}${MEDIA_ENDPOINT}${cleanDocPath}`;
+        link.target = '_blank';
+        link.className = 'btn btn-xs btn-outline-secondary small p-1';
+        link.innerHTML = `<i class="bi bi-file-earmark-image"></i> ${doc.type}`;
+        kycDocsEl.appendChild(link);
+    });
+    
+    // KYC Actions visibility logic
+    const kycActions = document.getElementById('kycActions');
+    kycActions.style.display = (kycStatus === 'pending' || kycStatus === 'submitted') ? 'flex' : 'none';
+    if (kycId) {
+        document.getElementById('approveKycForm').action = `/account/kyc/${kycId}/approve`;
+        document.getElementById('rejectKycForm').action = `/account/kyc/${kycId}/reject`;
+    }
+
+    // Driver Logic
+    const driverStatus = btn.getAttribute('data-driver-status')?.toLowerCase();
+    const driverId = btn.getAttribute('data-driver-id');
+    const driverBadge = document.getElementById('modalDriverStatus');
+    const driverVehicleEl = document.getElementById('modalDriverVehicle');
+    const driverStatsEl = document.getElementById('modalDriverStats');
+    const driverLicenseEl = document.getElementById('modalDriverLicense');
+
+    driverBadge.textContent = driverStatus;
+    driverBadge.className = 'badge rounded-pill ' + (driverStatus === 'active' ? 'bg-success' : driverStatus === 'pending' ? 'bg-warning' : 'bg-secondary');
+    
+    driverVehicleEl.textContent = btn.getAttribute('data-driver-vehicle') || 'No vehicle info';
+    driverStatsEl.textContent = btn.getAttribute('data-driver-stats') || '';
+    driverLicenseEl.textContent = `License: ${btn.getAttribute('data-driver-license') || 'N/A'}`;
+    
+    // Driver Actions visibility logic
+    const driverActions = document.getElementById('driverActions');
+    const approveBtn = document.getElementById('approveDriverForm');
+    const rejectBtn = document.getElementById('rejectDriverForm');
+    const suspendBtn = document.getElementById('suspendDriverForm');
+
+    driverActions.style.display = (driverStatus !== 'none') ? 'flex' : 'none';
+    
+    // Toggle specific buttons based on status
+    approveBtn.style.display = (driverStatus === 'pending' || driverStatus === 'suspended') ? 'block' : 'none';
+    rejectBtn.style.display = (driverStatus === 'pending') ? 'block' : 'none';
+    suspendBtn.style.display = (driverStatus === 'active') ? 'block' : 'none';
+
+    document.getElementById('approveDriverForm').action = `/account/driver/${driverId}/approve`;
+    document.getElementById('rejectDriverForm').action = `/account/driver/${driverId}/reject`;
+    document.getElementById('suspendDriverForm').action = `/account/driver/${driverId}/suspend`;
+});
+</script>
+{% endblock %}

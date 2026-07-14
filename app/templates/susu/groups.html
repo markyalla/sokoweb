@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .page-hero { background:#FF8000;color:#fff;border-radius:16px;padding:20px 28px;margin-bottom:24px; }
+  .btn-orange { background:#FF8000!important;border-color:#FF8000!important;color:#fff!important; }
+  .btn-orange:hover { background:#e07000!important;border-color:#e07000!important; }
+  .scroll-y { max-height:520px;overflow-y:auto; }
+  .table th { font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:#9ca3af;font-weight:700; }
+  .table td { font-size:.84rem;vertical-align:middle; }
+</style>
+<div class="page-hero">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+      <h5 class="fw-bold mb-1">SokoSusu Groups</h5>
+      <p class="mb-0" style="color:rgba(255,255,255,.85);font-size:.85rem;">Manage rotating savings groups</p>
+    </div>
+    <a href="{{ url_for('susu.create_group') }}"
+       class="btn btn-sm fw-semibold px-4 py-2"
+       style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:10px;">
+      <i class="bi bi-plus-lg me-1"></i>New Group
+    </a>
+  </div>
+</div>
+
+<!-- Stats row -->
+<div class="row g-3 mb-4">
+    {% for label, value, icon, color in [
+        ('Total Groups', stats.total, 'people', '#FF8000'),
+        ('Forming', stats.forming, 'hourglass-split', '#f59e0b'),
+        ('Active', stats.active, 'play-circle', '#FF8000'),
+        ('Completed', stats.completed, 'check-circle', '#6b7280'),
+    ] %}
+    <div class="col-6 col-md-3">
+        <div class="bg-white rounded-3 p-3 shadow-sm d-flex align-items-center gap-3">
+            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:42px;height:42px;background:{{ color }}22;">
+                <i class="bi bi-{{ icon }}" style="color:{{ color }};font-size:1.1rem;"></i>
+            </div>
+            <div>
+                <div class="fw-bold fs-5">{{ value }}</div>
+                <div class="text-muted small">{{ label }}</div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Groups table -->
+<div class="bg-white rounded-3 shadow-sm overflow-hidden">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+      <span class="fw-semibold">All Groups</span>
+      <span class="text-muted small">{{ groups|length }} total</span>
+    </div>
+    {% if groups %}
+    <div class="scroll-y">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-3">Group</th>
+                    <th>Contribution</th>
+                    <th>Cycle</th>
+                    <th>Members</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for group in groups %}
+                {% set member_count = group.members|length %}
+                {% set is_full = member_count >= group.max_members %}
+                <tr>
+                    <td class="ps-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:36px;height:36px;background:#fff7ed;flex-shrink:0;">
+                                <i class="bi bi-people" style="color:#FF8000;"></i>
+                            </div>
+                            <div>
+                                <span class="fw-semibold small d-block">{{ group.name }}</span>
+                                {% if is_full %}
+                                <span class="badge rounded-pill" style="background:#fee2e2;color:#dc2626;font-size:0.65rem;">Full</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td class="small">GH₵ {{ "%.2f"|format(group.contribution_amount) }}</td>
+                    <td class="small text-capitalize">{{ group.cycle_period }}</td>
+                    <td class="small">
+                        <span class="{% if is_full %}text-danger fw-semibold{% else %}text-muted{% endif %}">
+                            {{ member_count }} / {{ group.max_members }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if group.status == 'forming' %}
+                            <span class="badge rounded-pill" style="background:#fff7ed;color:#FF8000;">Forming</span>
+                        {% elif group.status == 'active' %}
+                            <span class="badge rounded-pill" style="background:#fff7ed;color:#FF8000;">Active</span>
+                        {% else %}
+                            <span class="badge rounded-pill bg-secondary">Completed</span>
+                        {% endif %}
+                    </td>
+                    <td class="small text-muted">{{ group.created_at.strftime('%b %d, %Y') if group.created_at else '—' }}</td>
+                    <td>
+                        <div class="d-flex gap-1 flex-wrap">
+                            <a href="{{ url_for('susu.group_detail', group_id=group.id) }}"
+                               class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                                View
+                            </a>
+                            {% if group.status == 'forming' %}
+                            <form method="POST" action="{{ url_for('susu.activate_group', group_id=group.id) }}" class="d-inline">
+                                <button type="submit" class="btn btn-sm fw-semibold px-3"
+                                        style="background:#FF8000;color:#fff;border-radius:20px;"
+                                        onclick="return confirm('Activate this group? Members will be able to start contributing.')">
+                                    <i class="bi bi-play-circle me-1"></i>Activate
+                                </button>
+                            </form>
+                            {% elif group.status == 'active' %}
+                            <form method="POST" action="{{ url_for('susu.complete_group', group_id=group.id) }}" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary rounded-pill px-3"
+                                        onclick="return confirm('Mark this group as completed?')">
+                                    <i class="bi bi-check-circle me-1"></i>Complete
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-people-fill text-muted" style="font-size:3rem;opacity:0.2;"></i>
+        <p class="text-muted mt-3 mb-1">No susu groups yet</p>
+        <a href="{{ url_for('susu.create_group') }}" class="btn btn-sm fw-semibold mt-2 px-4" style="background:#FF8000;color:#fff;border-radius:10px;">Create First Group</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,198 @@
+{% extends "store/base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Store Dashboard{% endblock %}
+
+{% block content %}
+<!-- Store header -->
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+    <div class="d-flex align-items-center gap-3">
+        {% if store.logo_url %}
+        <img src="{{ resolve_media(store.logo_url) }}" alt="{{ store.name }}"
+             class="rounded-3 object-fit-cover" style="width:60px;height:60px;">
+        {% else %}
+        <div class="rounded-3 d-flex align-items-center justify-content-center text-white fw-bold fs-4"
+             style="width:60px;height:60px;background:var(--soko-primary);">
+            {{ store.name[0] }}
+        </div>
+        {% endif %}
+        <div>
+            <h4 class="mb-0 fw-bold">{{ store.name }}</h4>
+            <div class="d-flex align-items-center gap-2 mt-1">
+                <span class="store-badge {{ 'open' if store.is_open else 'closed' }}"></span>
+                <span class="small text-muted fw-semibold">{{ 'Open' if store.is_open else 'Closed' }}</span>
+                {% if store.city %}<span class="text-muted small">· {{ store.city }}</span>{% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Toggle open/closed -->
+    <form method="POST" action="{{ url_for('store_owner.toggle_open') }}">
+        {% if store.is_open %}
+        <button type="submit" class="btn btn-outline-danger">
+            <i class="bi bi-door-closed me-1"></i>Close Store
+        </button>
+        {% else %}
+        <button type="submit" class="btn btn-success">
+            <i class="bi bi-door-open me-1"></i>Open Store
+        </button>
+        {% endif %}
+    </form>
+</div>
+
+<!-- KPI cards: Orders -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <a href="{{ url_for('store_owner.orders', tab='active') }}" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="text-muted small fw-semibold">Active Orders</span>
+                        <div class="rounded-circle d-flex align-items-center justify-content-center"
+                             style="width:36px;height:36px;background:#fff7ed;">
+                            <i class="bi bi-clock" style="color:#f97316;"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-0">{{ active_count }}</h3>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="{{ url_for('store_owner.orders', tab='completed') }}" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="text-muted small fw-semibold">Completed</span>
+                        <div class="rounded-circle d-flex align-items-center justify-content-center"
+                             style="width:36px;height:36px;background:#f0fdf4;">
+                            <i class="bi bi-check-circle" style="color:#22c55e;"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-0">{{ completed_count }}</h3>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="{{ url_for('store_owner.orders', tab='history') }}" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="text-muted small fw-semibold">Cancelled / History</span>
+                        <div class="rounded-circle d-flex align-items-center justify-content-center"
+                             style="width:36px;height:36px;background:#fef2f2;">
+                            <i class="bi bi-x-circle" style="color:#ef4444;"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-0">{{ history_count }}</h3>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-6 col-md-3">
+        <a href="{{ url_for('store_owner.products') }}" class="text-decoration-none">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="text-muted small fw-semibold">Products</span>
+                        <div class="rounded-circle d-flex align-items-center justify-content-center"
+                             style="width:36px;height:36px;background:#eff6ff;">
+                            <i class="bi bi-box-seam" style="color:#3b82f6;"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-0">{{ products_count }}</h3>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- KPI cards: Financials -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <span class="text-muted small fw-semibold">Total Earned (all time)</span>
+                <h3 class="fw-bold mt-2 mb-0" style="color:var(--soko-primary);">GH₵ {{ '%.2f'|format(total_earned) }}</h3>
+                <p class="text-muted small mb-0">80% of delivered order subtotals</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <span class="text-muted small fw-semibold">Available Balance</span>
+                <h3 class="fw-bold mt-2 mb-0 text-success">GH₵ {{ '%.2f'|format(available_balance) }}</h3>
+                <p class="text-muted small mb-0">Ready to cash out</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <span class="text-muted small fw-semibold">Pending Cashout</span>
+                <h3 class="fw-bold mt-2 mb-0 text-warning">GH₵ {{ '%.2f'|format(pending_cashout) }}</h3>
+                <p class="text-muted small mb-0">Being processed by admin</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent orders -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white d-flex align-items-center justify-content-between py-3">
+        <span class="fw-semibold">Recent Orders</span>
+        <a href="{{ url_for('store_owner.orders') }}" class="btn btn-sm btn-outline-secondary">View All</a>
+    </div>
+    <div class="card-body p-0">
+        {% if recent_orders %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3">Order</th>
+                        <th>Customer</th>
+                        <th>Subtotal</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for o in recent_orders %}
+                    <tr>
+                        <td class="ps-3 fw-mono small text-muted">#{{ (o.id|string)[:8] }}</td>
+                        <td>{{ customers_map.get(o.user_id, 'Customer') }}</td>
+                        <td>GH₵ {{ '%.2f'|format(o.subtotal|float) }}</td>
+                        <td>
+                            {% set s = o.status %}
+                            {% if s == 'delivered' %}
+                                <span class="badge bg-success">Delivered</span>
+                            {% elif s in ['cancelled','refunded','failed'] %}
+                                <span class="badge bg-danger">{{ s|title }}</span>
+                            {% elif s == 'payment_confirmed' %}
+                                <span class="badge bg-info text-dark">Paid</span>
+                            {% elif s == 'preparing' %}
+                                <span class="badge bg-warning text-dark">Preparing</span>
+                            {% elif s == 'ready_for_pickup' %}
+                                <span class="badge bg-primary">Ready</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ s|replace('_',' ')|title }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small">
+                            {{ o.created_at.strftime('%b %d, %H:%M') if o.created_at else '—' }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-receipt fs-1 d-block mb-2"></i>
+            No orders yet.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

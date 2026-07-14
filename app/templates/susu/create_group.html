@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center gap-2 mb-4">
+    <a href="{{ url_for('susu.index') }}" class="btn btn-sm btn-outline-secondary rounded-pill">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+        <h4 class="fw-bold mb-0">Create Susu Group</h4>
+        <p class="text-muted small mb-0">Set up a new rotating savings group</p>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-7 col-lg-6">
+        <div class="bg-white rounded-3 shadow-sm p-4">
+            <form method="POST" action="{{ url_for('susu.create_group') }}">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small">Group Name</label>
+                    <input type="text" name="name" class="form-control rounded-3" placeholder="e.g. Family Savings Club" maxlength="150" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small">Contribution Amount (GH₵)</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0">GH₵</span>
+                        <input type="number" name="contribution_amount" class="form-control rounded-end" placeholder="0.00" step="0.01" min="0.01" required>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold small">Cycle Period</label>
+                    <div class="d-flex gap-2">
+                        <div class="form-check flex-fill border rounded-3 p-3 m-0" style="cursor:pointer;">
+                            <input class="form-check-input" type="radio" name="cycle_period" id="weekly" value="weekly">
+                            <label class="form-check-label w-100" for="weekly" style="cursor:pointer;">
+                                <i class="bi bi-calendar-week me-2" style="color:#FF8000;"></i>Weekly
+                            </label>
+                        </div>
+                        <div class="form-check flex-fill border rounded-3 p-3 m-0" style="cursor:pointer;">
+                            <input class="form-check-input" type="radio" name="cycle_period" id="monthly" value="monthly" checked>
+                            <label class="form-check-label w-100" for="monthly" style="cursor:pointer;">
+                                <i class="bi bi-calendar-month me-2" style="color:#FF8000;"></i>Monthly
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-semibold small">Max Members <span class="text-muted fw-normal">(2–50)</span></label>
+                    <input type="number" name="max_members" class="form-control rounded-3" placeholder="e.g. 10" min="2" max="50" required>
+                </div>
+
+                <div class="alert alert-success border-0 rounded-3 py-2 px-3 small mb-4" style="background:#ecfdf5;">
+                    <i class="bi bi-info-circle me-2" style="color:#1D9E75;"></i>
+                    The group creator is automatically assigned position #1 and becomes the admin.
+                </div>
+
+                <button type="submit" class="btn w-100 fw-semibold py-2 rounded-3" style="background:#FF8000;color:#fff;">
+                    <i class="bi bi-plus-circle me-2"></i>Create Group
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

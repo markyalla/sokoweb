@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .btn-orange { background:#FF8000!important;border-color:#FF8000!important;color:#fff!important; }
+  .btn-orange:hover { background:#e07000!important;border-color:#e07000!important; }
+  .scroll-y { max-height:400px;overflow-y:auto; }
+</style>
+<div class="d-flex align-items-center gap-2 mb-4" style="background:#FF8000;border-radius:14px;padding:16px 20px;">
+    <a href="{{ url_for('susu.index') }}" class="btn btn-sm"
+       style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:8px;">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+        <h5 class="fw-bold mb-0 text-white">{{ group.name }}</h5>
+        <p class="mb-0" style="color:rgba(255,255,255,.8);font-size:.82rem;">Group Details</p>
+    </div>
+    <div class="ms-auto d-flex gap-2">
+        {% if group.status == 'forming' %}
+        <form method="POST" action="{{ url_for('susu.activate_group', group_id=group.id) }}" class="d-inline">
+            <button class="btn btn-sm btn-orange fw-semibold px-3" style="border-radius:10px;"
+                    onclick="return confirm('Activate this group so members can start contributing?')">
+                <i class="bi bi-play-circle me-1"></i> Activate Group
+            </button>
+        </form>
+        {% elif group.status == 'active' %}
+        <form method="POST" action="{{ url_for('susu.complete_group', group_id=group.id) }}" class="d-inline">
+            <button class="btn btn-sm btn-outline-secondary rounded-pill px-3"
+                    onclick="return confirm('Mark this group as completed?')">
+                <i class="bi bi-check-circle me-1"></i> Mark Complete
+            </button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Stats -->
+{% set member_count = members|length %}
+{% set is_full = member_count >= group.max_members %}
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="bg-white rounded-3 p-3 shadow-sm text-center">
+            <i class="bi bi-cash mb-1" style="font-size:1.4rem;color:#FF8000;"></i>
+            <div class="fw-bold">GH₵ {{ "%.2f"|format(group.contribution_amount) }}</div>
+            <div class="text-muted small">Per {{ group.cycle_period }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="bg-white rounded-3 p-3 shadow-sm text-center">
+            <i class="bi bi-people mb-1" style="font-size:1.4rem;color:#FF8000;"></i>
+            <div class="fw-bold {% if is_full %}text-danger{% endif %}">
+                {{ member_count }} / {{ group.max_members }}
+                {% if is_full %}<span class="badge rounded-pill ms-1" style="background:#fee2e2;color:#dc2626;font-size:0.6rem;">Full</span>{% endif %}
+            </div>
+            <div class="text-muted small">Members</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="bg-white rounded-3 p-3 shadow-sm text-center">
+            <i class="bi bi-calendar mb-1" style="font-size:1.4rem;color:#6366f1;"></i>
+            <div class="fw-bold text-capitalize">{{ group.cycle_period }}</div>
+            <div class="text-muted small">Cycle</div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="bg-white rounded-3 p-3 shadow-sm text-center">
+            <i class="bi bi-info-circle mb-1" style="font-size:1.4rem;color:#f59e0b;"></i>
+            <div class="fw-bold text-capitalize">{{ group.status }}</div>
+            <div class="text-muted small">Status</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Members -->
+    <div class="col-lg-5">
+        <div class="bg-white rounded-3 shadow-sm h-100">
+            <div class="p-3 border-bottom d-flex align-items-center justify-content-between">
+                <span class="fw-semibold">
+                    <i class="bi bi-people me-2" style="color:#FF8000;"></i>Members
+                </span>
+                <span class="badge bg-light text-dark">{{ member_count }} / {{ group.max_members }}</span>
+            </div>
+            <div class="p-2 scroll-y">
+                {% if members %}
+                    {% for m in members %}
+                    {% set u = user_map.get(m.user_id | string) %}
+                    {% set paid = (m.user_id | string) in contributed_this_cycle %}
+                    <div class="d-flex align-items-start gap-3 p-3 rounded-2 {% if not loop.last %}border-bottom{% endif %}">
+                        <!-- Avatar -->
+                        <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold small flex-shrink-0"
+                             style="width:40px;height:40px;background:{% if m.is_admin %}#FF800022{% else %}#fff7ed{% endif %};color:#FF8000;">
+                            {% if u %}{{ u.full_name[0] | upper }}{% else %}#{{ m.position }}{% endif %}
+                        </div>
+                        <!-- Info -->
+                        <div class="flex-grow-1 min-width-0">
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <span class="fw-semibold small">
+                                    {% if u %}{{ u.full_name }}{% else %}Member #{{ m.position }}{% endif %}
+                                </span>
+                                {% if m.is_admin %}
+                                <span class="badge rounded-pill" style="background:#ecfdf5;color:#FF8000;font-size:0.65rem;">
+                                    <i class="bi bi-shield-check me-1"></i>Admin
+                                </span>
+                                {% endif %}
+                                <span class="badge rounded-pill ms-auto {% if paid %}text-success{% else %}text-secondary{% endif %}"
+                                      style="background:{% if paid %}#ecfdf5{% else %}#f3f4f6{% endif %};font-size:0.65rem;">
+                                    {% if paid %}<i class="bi bi-check-circle me-1"></i>Paid{% else %}<i class="bi bi-clock me-1"></i>Pending{% endif %}
+                                </span>
+                            </div>
+                            {% if u %}
+                            <div class="text-muted mt-1" style="font-size:0.75rem;">
+                                <i class="bi bi-telephone me-1"></i>{{ u.phone_number or '—' }}
+                            </div>
+                            <div class="text-muted" style="font-size:0.75rem;">
+                                <i class="bi bi-envelope me-1"></i>{{ u.email or '—' }}
+                            </div>
+                            {% endif %}
+                            <div class="text-muted mt-1" style="font-size:0.7rem;">
+                                Position #{{ m.position }} &middot; Joined {{ m.joined_at.strftime('%b %d, %Y') if m.joined_at else '—' }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted small text-center py-3">No members yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Right column: contributions + payouts -->
+    <div class="col-lg-7">
+        <!-- Contributions -->
+        <div class="bg-white rounded-3 shadow-sm mb-3">
+            <div class="p-3 border-bottom fw-semibold">
+                <i class="bi bi-cash-stack me-2" style="color:#FF8000;"></i>Contributions
+                <span class="badge bg-light text-dark ms-2">{{ contributions|length }}</span>
+            </div>
+            <div class="p-2">
+                {% if cycle_summary %}
+                    {% for cycle_num, count in cycle_summary.items()|sort %}
+                    {% set pct = (count / member_count * 100) | int if member_count > 0 else 0 %}
+                    <div class="p-3 {% if not loop.last %}border-bottom{% endif %}">
+                        <div class="d-flex align-items-center gap-3 mb-2">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                                 style="width:36px;height:36px;background:#ecfdf5;">
+                                <i class="bi bi-cash" style="color:#FF8000;font-size:0.9rem;"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between">
+                                    <span class="small fw-semibold">Cycle {{ cycle_num }}</span>
+                                    <span class="small fw-bold" style="color:#FF8000;">
+                                        GH₵ {{ "%.2f"|format(count * group.contribution_amount) }}
+                                    </span>
+                                </div>
+                                <div class="text-muted" style="font-size:0.72rem;">{{ count }} / {{ member_count }} members contributed</div>
+                            </div>
+                        </div>
+                        <div class="progress" style="height:5px;border-radius:3px;">
+                            <div class="progress-bar" role="progressbar"
+                                 style="width:{{ pct }}%;background:#FF8000;" aria-valuenow="{{ pct }}"
+                                 aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted small text-center py-3">No contributions yet.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Payouts -->
+        <div class="bg-white rounded-3 shadow-sm">
+            <div class="p-3 border-bottom fw-semibold">
+                <i class="bi bi-arrow-down-circle me-2" style="color:#FF8000;"></i>Payouts
+                <span class="badge bg-light text-dark ms-2">{{ payouts|length }}</span>
+            </div>
+            <div class="p-2">
+                {% if payouts %}
+                    {% for p in payouts %}
+                    {% set pu = user_map.get(p.user_id | string) %}
+                    <div class="d-flex align-items-center gap-3 p-3 rounded-2 {% if not loop.last %}border-bottom{% endif %}">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                             style="width:36px;height:36px;background:#fff7ed;">
+                            <i class="bi bi-arrow-down" style="color:#FF8000;font-size:0.9rem;"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="small fw-semibold">
+                                {% if pu %}{{ pu.full_name }}{% else %}Cycle {{ p.cycle_number }}{% endif %}
+                            </div>
+                            <div class="text-muted" style="font-size:0.72rem;">
+                                Cycle {{ p.cycle_number }} &middot; {{ p.payout_date.strftime('%b %d, %Y') if p.payout_date else '—' }}
+                            </div>
+                        </div>
+                        <div class="small fw-bold" style="color:#FF8000;">GH₵ {{ "%.2f"|format(p.amount) }}</div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted small text-center py-3">No payouts yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

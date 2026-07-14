@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .page-hero { background:#FF8000;color:#fff;border-radius:16px;padding:24px 28px;margin-bottom:24px; }
+  .filter-pill { border:1px solid #e5e7eb;background:#fff;color:#555;font-size:.78rem;font-weight:600;
+                 padding:6px 16px;border-radius:999px;cursor:pointer;transition:all .15s; }
+  .filter-pill.active { background:#FF8000;border-color:#FF8000;color:#fff; }
+  .table th { font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:#9ca3af;font-weight:700; }
+  .table td { font-size:.84rem;vertical-align:middle; }
+  .online-dot { width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px; }
+</style>
+
+<div class="page-hero">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div>
+      <h5 class="fw-bold mb-1">Active Deliveries</h5>
+      <p class="mb-0" style="color:rgba(255,255,255,.85);font-size:.85rem;">
+        Every shopper order and parcel delivery currently in flight, in one feed
+      </p>
+    </div>
+    <div class="d-flex gap-2">
+      <span class="badge rounded-pill" style="background:rgba(255,255,255,.2);color:#fff;font-size:.8rem;padding:6px 14px;">
+        <i class="bi bi-bag-check me-1"></i>{{ shopper_count }} shopper
+      </span>
+      <span class="badge rounded-pill" style="background:rgba(255,255,255,.2);color:#fff;font-size:.8rem;padding:6px 14px;">
+        <i class="bi bi-box-seam me-1"></i>{{ parcel_count }} parcel
+      </span>
+    </div>
+  </div>
+</div>
+
+<div class="d-flex gap-2 mb-3">
+  <button class="filter-pill active" data-filter="all">All ({{ feed|length }})</button>
+  <button class="filter-pill" data-filter="shopper">🍱 Shopper ({{ shopper_count }})</button>
+  <button class="filter-pill" data-filter="parcel">📦 Parcel ({{ parcel_count }})</button>
+</div>
+
+<div class="bg-white rounded-3 shadow-sm overflow-hidden">
+  {% if feed %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0" id="feedTable">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-3">Type</th>
+          <th>Ref</th>
+          <th>Store / Receiver</th>
+          <th>Driver</th>
+          <th>Status</th>
+          <th>Amount</th>
+          <th>Created</th>
+          <th class="pe-3"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in feed %}
+        <tr data-kind="{{ item.kind }}">
+          <td class="ps-3">
+            {% if item.kind == 'shopper' %}
+            <span class="badge bg-info-subtle text-info border border-info-subtle">🍱 Shopper</span>
+            {% else %}
+            <span class="badge bg-warning-subtle text-warning border border-warning-subtle">📦 Parcel</span>
+            {% endif %}
+          </td>
+          <td class="font-monospace small">{{ item.ref }}</td>
+          <td class="small">
+            <div class="text-muted" style="font-size:10px;text-transform:uppercase;">{{ item.party_label }}</div>
+            {{ item.party }}
+          </td>
+          <td class="small">
+            {% if item.driver %}
+              <span class="online-dot" style="background:{{ '#16a34a' if item.driver.is_online else '#9ca3af' }};"></span>
+              {{ item.driver.name }}
+            {% else %}
+              <span class="text-muted">Unassigned</span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+              {{ (item.status or '—')|replace('_',' ')|title }}
+            </span>
+          </td>
+          <td class="small fw-semibold">GH₵ {{ "%.2f"|format(item.amount) }}</td>
+          <td class="small text-muted">{{ item.created_at.strftime('%d %b %H:%M') if item.created_at else '—' }}</td>
+          <td class="pe-3 text-end">
+            <a href="{{ item.detail_url }}" class="btn btn-sm btn-outline-primary px-2 py-1">
+              <i class="bi bi-eye"></i>
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center py-5 text-muted">
+    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+    Nothing active right now.
+  </div>
+  {% endif %}
+</div>
+
+<script>
+  document.querySelectorAll('.filter-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const filter = btn.dataset.filter;
+      document.querySelectorAll('#feedTable tbody tr').forEach(row => {
+        row.style.display = (filter === 'all' || row.dataset.kind === filter) ? '' : 'none';
+      });
+    });
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block content %}
+
+
+<div class="bg-white rounded-3 shadow-sm p-3 mb-4 d-flex flex-wrap align-items-center gap-4">
+    <div class="fw-semibold small text-muted">SokoIndex Payments</div>
+    <form method="post" action="{{ url_for('sokoindex.toggle_contact_unlock') }}" class="d-flex align-items-center gap-2 mb-0">
+        <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" role="switch" style="cursor:pointer;"
+                   onchange="this.form.submit()" {% if flag.contact_unlock_enabled %}checked{% endif %}>
+        </div>
+        <span class="small">Contact Unlock Fee {% if not flag.contact_unlock_enabled %}<span class="text-muted">(currently free)</span>{% endif %}</span>
+    </form>
+    <form method="post" action="{{ url_for('sokoindex.toggle_joining_fee') }}" class="d-flex align-items-center gap-2 mb-0">
+        <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" role="switch" style="cursor:pointer;"
+                   onchange="this.form.submit()" {% if flag.joining_fee_enabled %}checked{% endif %}>
+        </div>
+        <span class="small">Artisan Joining Fee {% if not flag.joining_fee_enabled %}<span class="text-muted">(currently free)</span>{% endif %}</span>
+    </form>
+</div>
+
+<div class="d-flex align-items-center gap-3 mb-4">
+    <h5 class="fw-bold mb-0">Artisan Applications</h5>
+    <span class="badge bg-secondary">{{ applications|length }}</span>
+</div>
+
+<div class="bg-white rounded-3 shadow-sm overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-3">Applicant</th>
+                    <th>Trade</th>
+                    <th>Description</th>
+                    <th>Location</th>
+                    <th>KYC</th>
+                    <th>Status</th>
+                    <th>Submitted</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in applications %}
+                {% set applicant = users_by_id.get(app.user_id) %}
+                <tr>
+                    <td class="ps-3 small">
+                        <div class="fw-semibold">{{ applicant.full_name if applicant else '—' }}</div>
+                        <div class="text-muted" style="font-size:11px;">{{ applicant.email if applicant else app.user_id|string|upper|truncate(8,True,'') }}</div>
+                    </td>
+                    <td class="small">{{ app.trade_category }}</td>
+                    <td class="small">{{ app.bio|truncate(60) }}</td>
+                    <td class="small">{{ app.location_text or '—' }}</td>
+                    <td>
+                        {% if applicant and applicant.kyc and applicant.kyc.status == 'approved' %}
+                        <span class="badge bg-success-subtle text-success border">Verified</span>
+                        {% else %}
+                        <span class="badge bg-danger-subtle text-danger border">Not verified</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if app.status == 'approved' %}
+                        <span class="badge bg-success-subtle text-success border border-success-subtle">Approved</span>
+                        {% elif app.status == 'rejected' %}
+                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Rejected</span>
+                        {% else %}
+                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td class="small text-muted">{{ app.submitted_at.strftime('%d %b %Y %H:%M') if app.submitted_at else '—' }}</td>
+                    <td>
+                        {% if app.status == 'pending' %}
+                        <div class="d-flex gap-1 align-items-center">
+                            <form method="post" action="{{ url_for('sokoindex.approve_application', id=app.id) }}" class="d-inline">
+                                <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                            </form>
+                            <form method="post" action="{{ url_for('sokoindex.reject_application', id=app.id) }}" class="d-inline d-flex gap-1">
+                                <input type="text" name="reason" class="form-control form-control-sm" placeholder="Reason" style="width:120px;">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
+                            </form>
+                        </div>
+                        {% else %}
+                        <span class="text-muted small">{{ app.rejection_reason or '—' }}</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-muted small">No artisan applications yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

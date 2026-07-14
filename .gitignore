@@ -1,0 +1,31 @@
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+env/
+
+# Flask instance folder
+instance/
+
+# Environment variables
+# Ignore all .env files, but keep the example
+.env
+.env.*
+!.env.example
+
+# IDEs / Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Stray Expo dev-server artifact (unrelated to this Flask project)
+.expo/

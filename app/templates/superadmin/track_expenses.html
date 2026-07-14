@@ -1,0 +1,895 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  .kpi-card { border: none; border-radius: 14px; }
+  .kpi-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+  .kpi-value { font-size: 1.55rem; font-weight: 800; line-height: 1.1; }
+  .kpi-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+  .progress-thin { height: 6px; border-radius: 99px; }
+  .section-header { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; color: #6b7280; margin-bottom: 1rem; }
+  .table th { font-size: 0.71rem; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; font-weight: 700; white-space: nowrap; }
+  .table td { font-size: 0.86rem; vertical-align: middle; }
+  .driver-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0; }
+  .badge-pill { border-radius: 999px; font-size: 0.7rem; padding: 3px 10px; }
+  .earnings-bar-bg { height: 6px; background: #e5e7eb; border-radius: 99px; margin-top: 4px; }
+  .earnings-bar-fill { height: 6px; border-radius: 99px; }
+  .grand-total-box { background: linear-gradient(135deg, #111827 0%, #FF8000 100%); border-radius: 18px; }
+  .tab-nav .nav-link { border-radius: 8px; font-size: 0.82rem; font-weight: 600; color: #6b7280; }
+  .tab-nav .nav-link.active { background: #FF8000; color: #fff; }
+  .btn-orange { background:#FF8000!important;border-color:#FF8000!important;color:#fff!important; }
+  .btn-orange:hover { background:#e07000!important;border-color:#e07000!important; }
+  .page-hero { background:#FF8000;color:#fff;border-radius:16px;padding:20px 28px;margin-bottom:24px; }
+  .no-data { text-align: center; padding: 3rem; color: #9ca3af; font-size: 0.9rem; }
+  .payout-queue-card { border: 2px dashed #e5e7eb; border-radius: 14px; }
+  .payout-queue-card.has-items { border-color: #fbbf24; border-style: solid; background: #fffbeb; }
+  .mark-paid-btn { font-size: 0.78rem; padding: 4px 12px; border-radius: 8px; }
+  @media print { .no-print { display: none !important; } }
+</style>
+
+<div style="height:calc(100vh - 72px);overflow-y:auto;overflow-x:hidden;padding-right:4px;">
+
+<!-- Page header -->
+<div class="page-hero no-print">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+      <h5 class="fw-bold mb-1">SokoApp Financial Dashboard</h5>
+      <p class="mb-0" style="color:rgba(255,255,255,.85);font-size:.85rem;">Platform earnings · driver payouts · store commissions</p>
+    </div>
+    <button class="btn btn-sm py-2 px-3 fw-semibold"
+            style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:10px;"
+            onclick="window.print()">
+      <i class="bi bi-printer me-1"></i>Print
+    </button>
+  </div>
+</div>
+
+<!-- Date range filter -->
+<form method="get" class="bg-white rounded-3 shadow-sm p-3 mb-4 d-flex flex-wrap align-items-end gap-3 no-print">
+  <div>
+    <label class="form-label small fw-semibold mb-1">From</label>
+    <input type="date" name="date_from" class="form-control form-control-sm" value="{{ date_from }}" style="width:160px;">
+  </div>
+  <div>
+    <label class="form-label small fw-semibold mb-1">To</label>
+    <input type="date" name="date_to" class="form-control form-control-sm" value="{{ date_to }}" style="width:160px;">
+  </div>
+  <button type="submit" class="btn btn-sm btn-orange"><i class="bi bi-funnel me-1"></i>Filter</button>
+  {% if date_from or date_to %}
+  <a href="{{ url_for('finance.track_expenses') }}" class="btn btn-sm btn-outline-secondary">Clear</a>
+  {% endif %}
+  <span class="text-muted small ms-auto">
+    {{ total_shopper_orders }} shopper orders &nbsp;·&nbsp; {{ total_parcel_deliveries }} parcel deliveries
+    {% if date_from or date_to %}<span class="badge bg-warning-subtle text-warning ms-2">Filtered</span>{% endif %}
+  </span>
+</form>
+
+<!-- ══ PENDING CASHOUT ALERTS ══════════════════════════════════════ -->
+{% if pending_driver_cashouts or pending_shop_cashouts %}
+<div class="row g-3 mb-4 no-print">
+
+  <!-- Pending driver cashouts -->
+  <div class="col-lg-6">
+    <div class="payout-queue-card p-0 overflow-hidden {{ 'has-items' if pending_driver_cashouts }}">
+      <div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom">
+        <div>
+          <span class="fw-bold">🚗 Pending Driver Payouts</span>
+          {% if pending_driver_cashouts %}
+          <span class="badge bg-warning text-dark ms-2">{{ pending_driver_cashouts|length }}</span>
+          {% endif %}
+        </div>
+        {% if pending_driver_cashouts %}
+        <span class="fw-bold text-warning">
+          GH₵ {{ "%.2f"|format(pending_driver_cashouts | sum(attribute='cashout.amount') | float) }}
+        </span>
+        {% endif %}
+      </div>
+      {% if pending_driver_cashouts %}
+      <div class="table-responsive" style="max-height:280px;overflow-y:auto;">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light" style="position:sticky;top:0;z-index:2;">
+            <tr>
+              <th class="ps-4">Driver</th>
+              <th>Amount</th>
+              <th>Method</th>
+              <th>Requested</th>
+              <th class="pe-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in pending_driver_cashouts %}
+            {% set c = row.cashout %}
+            <tr>
+              <td class="ps-4">
+                <div class="d-flex align-items-center gap-2">
+                  <div class="driver-avatar" style="background:#fef3c7;color:#92400e;">
+                    {{ (row.user.full_name[0] if row.user else '?')|upper }}
+                  </div>
+                  <div>
+                    <div class="fw-semibold small">{{ row.user.full_name if row.user else 'Unknown' }}</div>
+                    {% if row.user and row.user.phone_number %}
+                    <div class="fw-semibold" style="font-size:0.75rem;color:#FF8000;">📞 {{ row.user.phone_number }}</div>
+                    {% endif %}
+                    <div class="text-muted" style="font-size:0.7rem;">{{ '📱 MoMo' if c.method == 'momo' else '🏦 Bank' if c.method == 'bank' else c.method or '—' }}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="fw-bold text-warning">GH₵ {{ "%.2f"|format(c.amount | float) }}</td>
+              <td><span class="badge bg-warning-subtle text-warning border border-warning-subtle badge-pill">Pending</span></td>
+              <td class="small text-muted">{{ c.created_at.strftime('%d %b %Y') if c.created_at else '—' }}</td>
+              <td class="pe-3 text-end">
+                {% set _amt = "%.2f"|format(c.amount|float) %}
+                {% set _drv = row.user.full_name if row.user else 'driver' %}
+                <form method="post" action="{{ url_for('finance.driver_cashout_mark_paid', cashout_id=c.id) }}" style="display:inline;">
+                  <button type="submit" class="btn btn-success btn-sm mark-paid-btn"
+                    data-msg="Mark GH₵ {{ _amt }} to {{ _drv }} as PAID?"
+                    onclick="return confirm(this.dataset.msg)">
+                    ✅ Mark Paid
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-4 text-muted small">
+        <i class="bi bi-check2-circle fs-4 d-block mb-1 text-success"></i>No pending driver payouts
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Pending shop cashouts -->
+  <div class="col-lg-6">
+    <div class="payout-queue-card p-0 overflow-hidden {{ 'has-items' if pending_shop_cashouts }}">
+      <div class="d-flex align-items-center justify-content-between px-4 py-3 border-bottom">
+        <div>
+          <span class="fw-bold">🏪 Pending Store Payouts</span>
+          {% if pending_shop_cashouts %}
+          <span class="badge bg-warning text-dark ms-2">{{ pending_shop_cashouts|length }}</span>
+          {% endif %}
+        </div>
+        {% if pending_shop_cashouts %}
+        <span class="fw-bold text-warning">
+          GH₵ {{ "%.2f"|format(pending_shop_cashouts | sum(attribute='cashout.amount') | float) }}
+        </span>
+        {% endif %}
+      </div>
+      {% if pending_shop_cashouts %}
+      <div class="table-responsive" style="max-height:280px;overflow-y:auto;">
+        <table class="table table-sm align-middle mb-0">
+          <thead class="table-light" style="position:sticky;top:0;z-index:2;">
+            <tr>
+              <th class="ps-4">Store</th>
+              <th>Amount</th>
+              <th>Pay To</th>
+              <th>Method</th>
+              <th>Requested</th>
+              <th class="pe-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in pending_shop_cashouts %}
+            {% set c = row.cashout %}
+            <tr>
+              <td class="ps-4">
+                <div class="fw-semibold small">{{ row.store.name if row.store else 'Unknown Store' }}</div>
+              </td>
+              <td class="fw-bold text-warning">GH₵ {{ "%.2f"|format(c.amount | float) }}</td>
+              <td>
+                {% if c.note %}
+                <div class="fw-semibold small" style="color:#FF8000;">{{ c.note }}</div>
+                {% else %}
+                <span class="text-muted small">—</span>
+                {% endif %}
+              </td>
+              <td><span class="badge bg-warning-subtle text-warning border border-warning-subtle badge-pill">Pending</span></td>
+              <td class="small text-muted">{{ c.created_at.strftime('%d %b %Y') if c.created_at else '—' }}</td>
+              <td class="pe-3 text-end">
+                {% set _amt = "%.2f"|format(c.amount|float) %}
+                {% set _sname = row.store.name if row.store else 'store' %}
+                <form method="post" action="{{ url_for('finance.shop_cashout_mark_paid', cashout_id=c.id) }}" style="display:inline;">
+                  <button type="submit" class="btn btn-success btn-sm mark-paid-btn"
+                    data-msg="Mark GH₵ {{ _amt }} to {{ _sname }} as PAID?"
+                    onclick="return confirm(this.dataset.msg)">
+                    ✅ Mark Paid
+                  </button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-4 text-muted small">
+        <i class="bi bi-check2-circle fs-4 d-block mb-1 text-success"></i>No pending store payouts
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endif %}
+
+<!-- ══ GRAND TOTAL BANNER ══════════════════════════════════════════ -->
+<div class="grand-total-box p-4 mb-4 text-white">
+  <div class="row align-items-center g-4">
+    <div class="col-lg-4">
+      <div class="kpi-label" style="color:rgba(255,255,255,0.65);">SokoApp Grand Total Earnings</div>
+      <div style="font-size:2.8rem;font-weight:900;line-height:1.1;">GH₵ {{ "%.2f"|format(platform_grand_total) }}</div>
+      <div class="mt-2" style="color:rgba(255,255,255,0.65);font-size:0.82rem;">
+        40% of all delivery fees &amp; 20% of all product sales
+      </div>
+    </div>
+    <div class="col-lg-8">
+      <div class="row g-3">
+        <div class="col-sm-4">
+          <div style="background:rgba(255,255,255,0.12);border-radius:12px;padding:14px 16px;">
+            <div class="kpi-label" style="color:rgba(255,255,255,0.6);">Product Commissions (20%)</div>
+            <div style="font-size:1.4rem;font-weight:800;">GH₵ {{ "%.2f"|format(platform_from_products) }}</div>
+            {% if platform_grand_total > 0 %}
+            <div class="earnings-bar-bg mt-2"><div class="earnings-bar-fill" style="width:{{ (platform_from_products/platform_grand_total*100)|round(1) }}%;background:#4ade80;"></div></div>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-sm-4">
+          <div style="background:rgba(255,255,255,0.12);border-radius:12px;padding:14px 16px;">
+            <div class="kpi-label" style="color:rgba(255,255,255,0.6);">Shopper Delivery (40%)</div>
+            <div style="font-size:1.4rem;font-weight:800;">GH₵ {{ "%.2f"|format(platform_from_shopper_delivery) }}</div>
+            {% if platform_grand_total > 0 %}
+            <div class="earnings-bar-bg mt-2"><div class="earnings-bar-fill" style="width:'{{ (platform_from_shopper_delivery/platform_grand_total*100)|round(1) }}%;background:#fbbf24;"></div></div>
+            {% endif %}
+          </div>
+        </div>
+        <div class="col-sm-4">
+          <div style="background:rgba(255,255,255,0.12);border-radius:12px; padding:14px 16px;">
+            <div class="kpi-label" style="color:rgba(255,255,255,0.6);">Parcel Delivery (40%)</div>
+            <div style="font-size:1.4rem;font-weight:800;">GH₵ {{ "%.2f"|format(platform_from_parcel_delivery) }}</div>
+            {% if platform_grand_total > 0 %}
+            <div class="earnings-bar-bg mt-2"><div class="earnings-bar-fill" style="width:'{{ (platform_from_parcel_delivery/platform_grand_total*100)|round(1) }}%;background:#60a5fa;"></div></div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ KPI CARDS ══════════════════════════════════════════════════ -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card kpi-card shadow-sm h-100 p-3">
+      <div class="d-flex align-items-start gap-3">
+        <div class="kpi-icon" style="background:#f0fdf4;"><i class="bi bi-bag-check text-success fs-5"></i></div>
+        <div>
+          <div class="kpi-label text-muted">Gross Product Sales</div>
+          <div class="kpi-value">GH₵ {{ "%.2f"|format(total_gross_sales) }}</div>
+          <div class="small text-muted mt-1">{{ total_shopper_orders }} orders</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card kpi-card shadow-sm h-100 p-3">
+      <div class="d-flex align-items-start gap-3">
+        <div class="kpi-icon" style="background:#eff6ff;"><i class="bi bi-shop text-primary fs-5"></i></div>
+        <div>
+          <div class="kpi-label text-muted">Store Payouts Owed (80%)</div>
+          <div class="kpi-value">GH₵ {{ "%.2f"|format(total_store_payout) }}</div>
+          <div class="small mt-1">
+            <span class="text-success">GH₵ {{ "%.2f"|format(total_store_paid) }} paid</span>
+            {% if total_store_pending > 0 %}&nbsp;·&nbsp;<span class="text-warning">GH₵ {{ "%.2f"|format(total_store_pending) }} pending</span>{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card kpi-card shadow-sm h-100 p-3">
+      <div class="d-flex align-items-start gap-3">
+        <div class="kpi-icon" style="background:#fff7ed;"><i class="bi bi-person-badge text-warning fs-5"></i></div>
+        <div>
+          <div class="kpi-label text-muted">Total Driver Earnings</div>
+          <div class="kpi-value">GH₵ {{ "%.2f"|format(total_driver_earnings) }}</div>
+          <div class="small text-muted mt-1">{{ driver_list|length }} drivers</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card kpi-card shadow-sm h-100 p-3">
+      <div class="d-flex align-items-start gap-3">
+        <div class="kpi-icon" style="background:#fef2f2;"><i class="bi bi-cash-coin text-danger fs-5"></i></div>
+        <div>
+          <div class="kpi-label text-muted">Driver Cashouts</div>
+          <div class="kpi-value">GH₵ {{ "%.2f"|format(total_driver_paid) }}</div>
+          <div class="small mt-1">
+            {% if total_driver_pending > 0 %}<span class="text-warning fw-semibold">GH₵ {{ "%.2f"|format(total_driver_pending) }} pending</span>&nbsp;·&nbsp;{% endif %}
+            <span class="text-success">GH₵ {{ "%.2f"|format(total_driver_balance) }} balance</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Refund KPI — only shown when refunds exist -->
+{% if refund_display %}
+<div class="d-flex align-items-center gap-3 rounded-3 px-4 py-3 mb-4 shadow-sm"
+     style="background:#fef2f2;border:1.5px solid #fca5a5;">
+  <div class="kpi-icon flex-shrink-0" style="background:#fee2e2;"><i class="bi bi-arrow-counterclockwise text-danger fs-5"></i></div>
+  <div class="flex-grow-1">
+    <div class="kpi-label text-danger">Customer Refunds Issued</div>
+    <div class="d-flex align-items-baseline gap-3 flex-wrap">
+      <span style="font-size:1.6rem;font-weight:800;color:#dc2626;">GH₵ {{ "%.2f"|format(total_refunded) }}</span>
+      <span class="text-muted small">{{ refund_display|length }} order{{ 's' if refund_display|length != 1 }} · Paystack returns this automatically to customers' MoMo</span>
+    </div>
+  </div>
+  <button class="btn btn-sm btn-outline-danger no-print" data-bs-toggle="tab" data-bs-target="#refundsTab"
+          onclick="document.querySelector('[data-bs-target=\'#refundsTab\']').click()">
+    View Details
+  </button>
+</div>
+{% endif %}
+
+<!-- ══ DRIVERS TABLE ══════════════════════════════════════════════ -->
+<div class="card shadow-sm border-0 rounded-3 mb-4">
+  <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between">
+    <div>
+      <div class="section-header mb-0">🚗 Driver Earnings &amp; Cashouts</div>
+      <div class="small text-muted">60% of every completed delivery fee goes to the driver</div>
+    </div>
+    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">{{ driver_list|length }} drivers</span>
+  </div>
+  {% if driver_list %}
+  <div class="table-responsive" style="max-height:420px;overflow-y:auto;">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light" style="position:sticky;top:0;z-index:2;">
+        <tr>
+          <th class="ps-4">Driver</th>
+          <th>Deliveries</th>
+          <th>Parcel Earned</th>
+          <th>Shopper Earned</th>
+          <th>Total Earned</th>
+          <th>Paid Out</th>
+          <th>Pending</th>
+          <th>Balance</th>
+          <th>Requests</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in driver_list %}
+        {% set max_earn = driver_list[0]['total_earn'] if driver_list else 1 %}
+        <tr>
+          <td class="ps-4">
+            <div class="d-flex align-items-center gap-2">
+              <div class="driver-avatar" style="background:hsl('{{ (loop.index0*47)%360 }},65%,88%);color:hsl({{ (loop.index0*47)%360 }},65%,35%);">
+                {{ (d.user.full_name[0] if d.user else '?')|upper }}
+              </div>
+              <div>
+                <div class="fw-semibold small">{{ d.user.full_name if d.user else 'Unknown Driver' }}</div>
+                <div class="text-muted" style="font-size:0.7rem;">{{ d.uid[:8] }}…</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle badge-pill me-1">{{ d.parcel_deliveries }}p</span>
+            <span class="badge bg-success-subtle text-success border border-success-subtle badge-pill">{{ d.shopper_deliveries }}s</span>
+          </td>
+          <td class="text-muted small">GH₵ {{ "%.2f"|format(d.parcel_earn) }}</td>
+          <td class="text-muted small">GH₵ {{ "%.2f"|format(d.shopper_earn) }}</td>
+          <td>
+            <div class="fw-bold" style="color:#FF8000;">GH₵ {{ "%.2f"|format(d.total_earn) }}</div>
+            {% if max_earn > 0 %}<div class="earnings-bar-bg"><div class="earnings-bar-fill" style="width:{{ [((d.total_earn/max_earn)*100)|round(1),100]|min }}%;background:#FF8000;"></div></div>{% endif %}
+          </td>
+          <td>
+            {% if d.cashout_paid > 0 %}<span class="text-success fw-semibold">GH₵ {{ "%.2f"|format(d.cashout_paid) }}</span>
+            {% else %}<span class="text-muted small">—</span>{% endif %}
+          </td>
+          <td>
+            {% if d.cashout_pending > 0 %}<span class="text-warning fw-bold">GH₵ {{ "%.2f"|format(d.cashout_pending) }}</span>
+            {% else %}<span class="text-muted small">—</span>{% endif %}
+          </td>
+          <td>
+            {% if d.remaining_balance > 0 %}<span class="fw-bold" style="color:#FF8000;">GH₵ {{ "%.2f"|format(d.remaining_balance) }}</span>
+            {% elif d.remaining_balance < 0 %}
+              <span class="text-danger fw-semibold">GH₵ {{ "%.2f"|format(d.remaining_balance) }}</span>
+              <form method="post" action="{{ url_for('finance.driver_reset_balance', driver_uid=d.uid) }}" style="display:inline;">
+                <button type="submit" class="btn btn-danger btn-sm mark-paid-btn d-block mt-1"
+                  data-msg="Reset balance for {{ d.user.full_name if d.user else 'this driver' }}?\n\nThis will delete ALL cashout requests and earning records for this driver. The balance will be recalculated from their remaining completed deliveries.\n\nThis cannot be undone."
+                  onclick="return confirm(this.dataset.msg)">
+                  ⚡ Reset Balance
+                </button>
+              </form>
+            {% else %}<span class="text-muted small">GH₵ 0.00</span>{% endif %}
+          </td>
+          <td>
+            {% set pending_crs = d.cashouts | selectattr('status','equalto','pending') | list %}
+            {% if pending_crs %}
+              {% for c in pending_crs %}
+              {% set _amt = "%.2f"|format(c.amount|float) %}
+              <form method="post" action="{{ url_for('finance.driver_cashout_mark_paid', cashout_id=c.id) }}" style="display:inline;margin-bottom:3px;">
+                <button type="submit" class="btn btn-warning btn-sm mark-paid-btn d-block mb-1"
+                  data-msg="Pay GH₵ {{ _amt }} to driver?"
+                  onclick="return confirm(this.dataset.msg)">
+                  💸 Pay GH₵ {{ _amt }}
+                </button>
+              </form>
+              {% endfor %}
+            {% else %}
+              <span class="text-muted small">{{ d.cashouts|length }} request{{ 's' if d.cashouts|length != 1 }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light fw-bold">
+        <tr>
+          <td class="ps-4">TOTAL</td>
+          <td>{{ driver_list|sum(attribute='total_deliveries') }}</td>
+          <td class="text-muted">GH₵ {{ "%.2f"|format(driver_list|sum(attribute='parcel_earn')) }}</td>
+          <td class="text-muted">GH₵ {{ "%.2f"|format(driver_list|sum(attribute='shopper_earn')) }}</td>
+          <td style="color:#FF8000;">GH₵ {{ "%.2f"|format(total_driver_earnings) }}</td>
+          <td class="text-success">GH₵ {{ "%.2f"|format(total_driver_paid) }}</td>
+          <td class="text-warning">GH₵ {{ "%.2f"|format(total_driver_pending) }}</td>
+          <td style="color:#FF8000;">GH₵ {{ "%.2f"|format(total_driver_balance) }}</td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% else %}
+  <div class="no-data"><i class="bi bi-person-x fs-3 d-block mb-2"></i>No driver data yet</div>
+  {% endif %}
+</div>
+
+<!-- ══ STORES TABLE ════════════════════════════════════════════════ -->
+<!-- Record Payout modal -->
+<div class="modal fade no-print" id="recordPayoutModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0 pb-0">
+        <h6 class="modal-title fw-bold">💰 Record Store Payout</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{{ url_for('finance.shop_cashout_create') }}">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Store</label>
+            <select name="store_id" class="form-select form-select-sm" id="payoutStoreSelect" required>
+              <option value="" disabled selected>— select a store —</option>
+              {% for s in all_stores %}
+              <option value="{{ s.id }}">{{ s.name }} ({{ s.city or '—' }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Amount (GH₵)</label>
+            <input type="number" name="amount" step="0.01" min="0.01" class="form-control form-control-sm" id="payoutAmountInput" required placeholder="0.00">
+            <div class="form-text small text-muted" id="payoutBalanceHint"></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Payment Method</label>
+            <select name="method" class="form-select form-select-sm">
+              <option value="momo">📱 Mobile Money</option>
+              <option value="bank">🏦 Bank Transfer</option>
+              <option value="cash">💵 Cash</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-semibold">Note (optional)</label>
+            <input type="text" name="note" class="form-control form-control-sm" placeholder="e.g. Week 23 payout…">
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-orange">Record Payout</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm border-0 rounded-3 mb-4">
+  <div class="card-header bg-white border-bottom py-3 d-flex align-items-center justify-content-between">
+    <div>
+      <div class="section-header mb-0">🏪 Store Earnings &amp; Platform Commission</div>
+      <div class="small text-muted">Stores receive 80% of product sales · SokoApp keeps 20%</div>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">{{ store_list|length }} stores</span>
+      <button class="btn btn-sm btn-orange no-print" data-bs-toggle="modal" data-bs-target="#recordPayoutModal">
+        <i class="bi bi-plus-lg me-1"></i>Record Payout
+      </button>
+    </div>
+  </div>
+  {% if store_list %}
+  <div class="table-responsive" style="max-height:420px;overflow-y:auto;">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light" style="position:sticky;top:0;z-index:2;">
+        <tr>
+          <th class="ps-4">Store</th>
+          <th>Orders</th>
+          <th>Gross Sales</th>
+          <th>Store 80%</th>
+          <th>SokoApp 20%</th>
+          <th>Delivery Fees</th>
+          <th>Driver 60%</th>
+          <th>SokoApp 40%</th>
+          <th>Paid Out</th>
+          <th>Pending</th>
+          <th>Balance Owed</th>
+          <th class="no-print"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in store_list %}
+        {% set max_sales = store_list[0]['gross_product_sales'] if store_list else 1 %}
+        <tr>
+          <td class="ps-4">
+            <div class="fw-semibold small">{{ s.store.name if s.store else 'Unknown Store' }}</div>
+            <div class="text-muted" style="font-size:0.7rem;">{{ s.store.city if s.store else '—' }}</div>
+          </td>
+          <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle badge-pill">{{ s.order_count }}</span></td>
+          <td>
+            <div class="fw-semibold">GH₵ {{ "%.2f"|format(s.gross_product_sales) }}</div>
+            {% if max_sales > 0 %}<div class="earnings-bar-bg"><div class="earnings-bar-fill" style="width:{{ [((s.gross_product_sales/max_sales)*100)|round(1),100]|min }}%;background:#3b82f6;"></div></div>{% endif %}
+          </td>
+          <td class="text-success fw-semibold">GH₵ {{ "%.2f"|format(s.store_payout) }}</td>
+          <td style="color:#FF8000;" class="fw-semibold">GH₵ {{ "%.2f"|format(s.platform_product_cut) }}</td>
+          <td class="text-muted small">GH₵ {{ "%.2f"|format(s.delivery_fees_total) }}</td>
+          <td class="text-muted small">GH₵ {{ "%.2f"|format(s.driver_delivery_earnings) }}</td>
+          <td style="color:#FF8000;" class="fw-semibold">GH₵ {{ "%.2f"|format(s.platform_delivery_cut) }}</td>
+          <td>
+            {% if s.cashout_paid > 0 %}<span class="text-success fw-semibold">GH₵ {{ "%.2f"|format(s.cashout_paid) }}</span>
+            {% else %}<span class="text-muted small">—</span>{% endif %}
+          </td>
+          <td>
+            {% if s.cashout_pending > 0 %}<span class="text-warning fw-bold">GH₵ {{ "%.2f"|format(s.cashout_pending) }}</span>
+            {% else %}<span class="text-muted small">—</span>{% endif %}
+          </td>
+          <td>
+            {% set bal = s.cashout_balance %}
+            {% if bal > 0 %}<span class="fw-bold" style="color:#FF8000;">GH₵ {{ "%.2f"|format(bal) }}</span>
+            {% elif bal <= 0 %}<span class="text-success small fw-semibold">Settled</span>{% endif %}
+          </td>
+          <td class="no-print">
+            {% set pending_crs = s.cashouts | selectattr('status','equalto','pending') | list %}
+            {% if pending_crs %}
+              {% for c in pending_crs %}
+              {% set _amt = "%.2f"|format(c.amount|float) %}
+              <form method="post" action="{{ url_for('finance.shop_cashout_mark_paid', cashout_id=c.id) }}" style="display:inline;">
+                <button type="submit" class="btn btn-success btn-sm mark-paid-btn mb-1"
+                  data-msg="Mark GH₵ {{ _amt }} as paid?"
+                  onclick="return confirm(this.dataset.msg)">
+                  ✅ GH₵ {{ _amt }}
+                </button>
+              </form>
+              {% endfor %}
+            {% else %}
+              <button class="btn btn-outline-primary btn-sm mark-paid-btn"
+                data-bs-toggle="modal" data-bs-target="#recordPayoutModal"
+                data-store-id="{{ s.store.id if s.store else '' }}"
+                data-store-name="{{ s.store.name if s.store else '' }}"
+                data-balance="{{ '%.2f'|format(s.cashout_balance) }}"
+                style="border-color:#FF8000;color:#FF8000;">
+                <i class="bi bi-plus me-1"></i>Pay Store
+              </button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot class="table-light fw-bold">
+        <tr>
+          <td class="ps-4">TOTAL</td>
+          <td>{{ store_list|sum(attribute='order_count') }}</td>
+          <td>GH₵ {{ "%.2f"|format(total_gross_sales) }}</td>
+          <td class="text-success">GH₵ {{ "%.2f"|format(total_store_payout) }}</td>
+          <td style="color:#FF8000;">GH₵ {{ "%.2f"|format(store_list|sum(attribute='platform_product_cut')) }}</td>
+          <td class="text-muted">GH₵ {{ "%.2f"|format(store_list|sum(attribute='delivery_fees_total')) }}</td>
+          <td class="text-muted">GH₵ {{ "%.2f"|format(store_list|sum(attribute='driver_delivery_earnings')) }}</td>
+          <td style="color:#FF8000;">GH₵ {{ "%.2f"|format(store_list|sum(attribute='platform_delivery_cut')) }}</td>
+          <td class="text-success">GH₵ {{ "%.2f"|format(total_store_paid) }}</td>
+          <td class="text-warning">GH₵ {{ "%.2f"|format(total_store_pending) }}</td>
+          <td style="color:#FF8000;">GH₵ {{ "%.2f"|format(store_list|sum(attribute='cashout_balance')) }}</td>
+          <td class="no-print"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% else %}
+  <div class="no-data"><i class="bi bi-shop fs-3 d-block mb-2"></i>No store sales yet</div>
+  {% endif %}
+</div>
+
+<!-- ══ GRAND SUMMARY ═══════════════════════════════════════════════ -->
+<div class="card shadow-sm border-0 rounded-3 mb-4">
+  <div class="card-header bg-white border-bottom py-3">
+    <div class="section-header mb-0">📋 SokoApp Earnings Breakdown (Grand Summary)</div>
+  </div>
+  <div class="table-responsive" style="max-height:360px;overflow-y:auto;">
+    <table class="table align-middle mb-0">
+      <thead class="table-light" style="position:sticky;top:0;z-index:2;">
+        <tr>
+          <th class="ps-4">Revenue Source</th>
+          <th>Description</th>
+          <th class="text-end pe-4">Amount (GH₵)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="ps-4"><span class="badge bg-success-subtle text-success border border-success-subtle badge-pill">Product Commission</span></td>
+          <td class="text-muted small">20% of GH₵ {{ "%.2f"|format(total_gross_sales) }} gross product sales</td>
+          <td class="text-end pe-4 fw-bold" style="color:#FF8000;">{{ "%.2f"|format(platform_from_products) }}</td>
+        </tr>
+        <tr>
+          <td class="ps-4"><span class="badge bg-warning-subtle text-warning border border-warning-subtle badge-pill">Shopper Delivery</span></td>
+          <td class="text-muted small">40% of shopper delivery fees — {{ total_shopper_orders }} orders</td>
+          <td class="text-end pe-4 fw-bold" style="color:#FF8000;">{{ "%.2f"|format(platform_from_shopper_delivery) }}</td>
+        </tr>
+        <tr>
+          <td class="ps-4"><span class="badge bg-primary-subtle text-primary border border-primary-subtle badge-pill">Parcel Delivery</span></td>
+          <td class="text-muted small">40% platform cut from {{ total_parcel_deliveries }} parcel assignments</td>
+          <td class="text-end pe-4 fw-bold" style="color:#FF8000;">{{ "%.2f"|format(platform_from_parcel_delivery) }}</td>
+        </tr>
+        <tr class="table-success fw-bold">
+          <td class="ps-4 fs-6">🏦 GRAND TOTAL</td>
+          <td class="text-muted small">SokoApp net platform earnings</td>
+          <td class="text-end pe-4 fs-5" style="color:#111827;">GH₵ {{ "%.2f"|format(platform_grand_total) }}</td>
+        </tr>
+        <tr class="table-light">
+          <td class="ps-4 text-muted small">Driver Paid Out</td>
+          <td class="text-muted small">Cashout requests confirmed as paid</td>
+          <td class="text-end pe-4 text-success fw-semibold">- GH₵ {{ "%.2f"|format(total_driver_paid) }}</td>
+        </tr>
+        <tr class="table-light">
+          <td class="ps-4 text-muted small">Driver Pending Cashout</td>
+          <td class="text-muted small">Requested, awaiting admin payment</td>
+          <td class="text-end pe-4 text-warning fw-semibold">- GH₵ {{ "%.2f"|format(total_driver_pending) }}</td>
+        </tr>
+        <tr class="table-light">
+          <td class="ps-4 text-muted small">Store Payouts Paid (80%)</td>
+          <td class="text-muted small">Confirmed payments to store owners</td>
+          <td class="text-end pe-4 text-primary fw-semibold">- GH₵ {{ "%.2f"|format(total_store_paid) }}</td>
+        </tr>
+        <tr class="table-light">
+          <td class="ps-4 text-muted small">Store Payouts Pending (80%)</td>
+          <td class="text-muted small">Recorded but not yet paid to stores</td>
+          <td class="text-end pe-4 text-warning fw-semibold">- GH₵ {{ "%.2f"|format(total_store_pending) }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══ COMPLETED DELIVERIES TABS ═══════════════════════════════════ -->
+<div class="card shadow-sm border-0 rounded-3 mb-4">
+  <div class="card-header bg-white border-bottom py-3">
+    <div class="section-header mb-2">✅ Completed Deliveries</div>
+    <ul class="nav tab-nav gap-1" role="tablist">
+      <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#parcelTab"><i class="bi bi-box-seam me-1"></i>Parcel ({{ total_parcel_deliveries }})</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#shopperTab"><i class="bi bi-bag me-1"></i>Shopper Orders ({{ total_shopper_orders }})</button></li>
+      <li class="nav-item">
+        <button class="nav-link {% if refund_display %}text-danger{% endif %}" data-bs-toggle="tab" data-bs-target="#refundsTab">
+          <i class="bi bi-arrow-counterclockwise me-1"></i>Refunds
+          {% if refund_display %}<span class="badge bg-danger ms-1">{{ refund_display|length }}</span>{% endif %}
+        </button>
+      </li>
+    </ul>
+  </div>
+  <div class="tab-content">
+
+    <!-- PARCEL TAB -->
+    <div class="tab-pane fade show active" id="parcelTab">
+      {% if parcel_display %}
+      <div class="table-responsive" style="max-height:400px;overflow-y:auto;">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light" style="position:sticky;top:0;z-index:2;">
+            <tr>
+              <th class="ps-4">Assignment</th><th>Driver</th><th>Description</th><th>Route</th>
+              <th>Delivery Fee</th><th>Driver 60%</th><th>Platform 40%</th><th>Delivered</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in parcel_display %}
+            {% set pa = row.assignment %}{% set o = row.order %}
+            <tr>
+              <td class="ps-4 font-monospace small text-muted">{{ pa.id|string|upper|truncate(8,True,'') }}</td>
+              <td>
+                {% if row.driver %}
+                <div class="d-flex align-items-center gap-2">
+                  <div class="driver-avatar" style="background:#f0fdf4;color:#166534;font-size:0.7rem;">{{ row.driver.full_name[0]|upper }}</div>
+                  <span class="small fw-semibold">{{ row.driver.full_name }}</span>
+                </div>
+                {% else %}<span class="text-muted small">—</span>{% endif %}
+              </td>
+              <td class="small">{{ o.description[:40]~'…' if o and o.description|length>40 else (o.description if o else '—') }}</td>
+              <td class="small text-muted">
+                {% if o %}
+                <div>📍 {{ o.pickup_address[:30]~'…' if o.pickup_address|length>30 else o.pickup_address }}</div>
+                <div>🎯 {{ o.dropoff_address[:30]~'…' if o.dropoff_address|length>30 else o.dropoff_address }}</div>
+                {% else %}—{% endif %}
+              </td>
+              <td class="fw-semibold">GH₵ {{ "%.2f"|format(pa.delivery_fee or 0) }}</td>
+              <td class="text-warning fw-semibold">GH₵ {{ "%.2f"|format(pa.driver_earnings or 0) }}</td>
+              <td style="color:#FF8000;" class="fw-semibold">GH₵ {{ "%.2f"|format(pa.platform_cut or 0) }}</td>
+              <td class="small text-muted">{{ pa.delivered_at.strftime('%d %b %Y %H:%M') if pa.delivered_at else '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if total_parcel_deliveries > 50 %}
+      <div class="text-center py-3 text-muted small border-top">Showing first 50 of {{ total_parcel_deliveries }} — use date filter to narrow</div>
+      {% endif %}
+      {% else %}
+      <div class="no-data"><i class="bi bi-box-seam fs-3 d-block mb-2"></i>No completed parcel deliveries</div>
+      {% endif %}
+    </div>
+
+    <!-- SHOPPER TAB -->
+    <div class="tab-pane fade" id="shopperTab">
+      {% if shopper_display %}
+      <div class="table-responsive" style="max-height:400px;overflow-y:auto;">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light" style="position:sticky;top:0;z-index:2;">
+            <tr>
+              <th class="ps-4">Order</th><th>Store</th><th>Driver</th>
+              <th>Subtotal</th><th>Store 80%</th><th>SokoApp 20%</th>
+              <th>Del. Fee</th><th>Driver 60%</th><th>Platform 40%</th><th>Delivered</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in shopper_display %}
+            {% set o = row.order %}{% set sub = (o.subtotal or 0)|float %}
+            <tr>
+              <td class="ps-4 font-monospace small text-muted">{{ o.id|string|upper|truncate(8,True,'') }}</td>
+              <td><div class="fw-semibold small">{{ row.store.name if row.store else '—' }}</div></td>
+              <td>
+                {% if row.driver %}
+                <div class="d-flex align-items-center gap-2">
+                  <div class="driver-avatar" style="background:#fef3c7;color:#92400e;font-size:0.7rem;">{{ row.driver.full_name[0]|upper }}</div>
+                  <span class="small fw-semibold">{{ row.driver.full_name }}</span>
+                </div>
+                {% else %}<span class="text-muted small">—</span>{% endif %}
+              </td>
+              <td class="fw-semibold small">GH₵ {{ "%.2f"|format(sub) }}</td>
+              <td class="text-success fw-semibold small">GH₵ {{ "%.2f"|format(sub*0.80) }}</td>
+              <td style="color:#FF8000;" class="fw-semibold small">GH₵ {{ "%.2f"|format(sub*0.20) }}</td>
+              <td class="text-muted small">GH₵ {{ "%.2f"|format(o.delivery_fee or 0) }}</td>
+              <td class="text-warning fw-semibold small">GH₵ {{ "%.2f"|format((o.delivery_fee or 0)|float*0.60) }}</td>
+              <td style="color:#FF8000;" class="fw-semibold small">GH₵ {{ "%.2f"|format((o.delivery_fee or 0)|float*0.40) }}</td>
+              <td class="small text-muted">{{ o.delivered_at.strftime('%d %b %Y %H:%M') if o.delivered_at else '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if total_shopper_orders > 50 %}
+      <div class="text-center py-3 text-muted small border-top">Showing first 50 of {{ total_shopper_orders }} — use date filter to narrow</div>
+      {% endif %}
+      {% else %}
+      <div class="no-data"><i class="bi bi-bag fs-3 d-block mb-2"></i>No completed shopper orders</div>
+      {% endif %}
+    </div>
+
+    <!-- REFUNDS TAB -->
+    <div class="tab-pane fade" id="refundsTab">
+      {% if refund_display %}
+      <!-- Refund summary banner -->
+      <div class="d-flex align-items-center gap-3 px-4 py-3 border-bottom"
+           style="background:#fef2f2;border-left:4px solid #ef4444!important;">
+        <i class="bi bi-info-circle text-danger fs-5"></i>
+        <div>
+          <span class="fw-bold text-danger">GH₵ {{ "%.2f"|format(total_refunded) }} total refunded</span>
+          <span class="text-muted small ms-2">— Paystack automatically returns this to customers' mobile money. Verify each transaction on your <a href="https://dashboard.paystack.com/#/refunds" target="_blank" class="text-danger">Paystack dashboard</a>.</span>
+        </div>
+      </div>
+      <div class="table-responsive" style="max-height:400px;overflow-y:auto;">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light" style="position:sticky;top:0;z-index:2;">
+            <tr>
+              <th class="ps-4">Order ID</th>
+              <th>Customer</th>
+              <th>Store</th>
+              <th>Amount Refunded</th>
+              <th>Paystack Ref</th>
+              <th>Payment Status</th>
+              <th>Refunded On</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in refund_display %}
+            {% set o = row.order %}
+            <tr>
+              <td class="ps-4 font-monospace small text-muted">{{ o.id|string|upper|truncate(8,True,'') }}</td>
+              <td>
+                {% if row.customer %}
+                <div class="fw-semibold small">{{ row.customer.full_name }}</div>
+                <div class="text-muted" style="font-size:11px;">{{ row.customer.phone_number }}</div>
+                {% else %}<span class="text-muted small">—</span>{% endif %}
+              </td>
+              <td class="small fw-semibold">{{ row.store.name if row.store else '—' }}</td>
+              <td class="fw-bold text-danger">GH₵ {{ "%.2f"|format(o.total_amount or 0) }}</td>
+              <td>
+                {% if o.paystack_reference %}
+                <span class="font-monospace small text-muted" title="{{ o.paystack_reference }}">
+                  {{ o.paystack_reference|truncate(20,True,'…') }}
+                </span>
+                {% else %}<span class="text-muted small">—</span>{% endif %}
+              </td>
+              <td>
+                {% if row.payment %}
+                  {% if row.payment.status == 'refunded' %}
+                  <span class="badge bg-success-subtle text-success border border-success-subtle">
+                    <i class="bi bi-check2 me-1"></i>Refunded
+                  </span>
+                  {% elif row.payment.status == 'pending' %}
+                  <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
+                    <i class="bi bi-clock me-1"></i>Pending
+                  </span>
+                  {% else %}
+                  <span class="badge bg-secondary-subtle text-secondary">{{ row.payment.status }}</span>
+                  {% endif %}
+                {% else %}
+                <span class="badge bg-secondary-subtle text-secondary">No record</span>
+                {% endif %}
+              </td>
+              <td class="small text-muted">
+                {{ o.cancelled_at.strftime('%d %b %Y %H:%M') if o.cancelled_at else '—' }}
+              </td>
+              <td class="small text-muted fst-italic">{{ o.cancel_reason or '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot class="table-light border-top">
+            <tr>
+              <td colspan="3" class="ps-4 fw-bold text-danger">Total Refunded</td>
+              <td class="fw-bold text-danger">GH₵ {{ "%.2f"|format(total_refunded) }}</td>
+              <td colspan="4"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      {% else %}
+      <div class="no-data">
+        <i class="bi bi-arrow-counterclockwise fs-3 d-block mb-2 text-success"></i>
+        <div class="fw-semibold">No refunds issued</div>
+        <div class="text-muted small mt-1">Customer refund requests will appear here</div>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+</div>
+
+</div><!-- end page scroll wrapper -->
+
+<script>
+// Pre-fill the Record Payout modal when clicking "Pay Store" from a row
+document.addEventListener('DOMContentLoaded', () => {
+  const modal = document.getElementById('recordPayoutModal');
+  if (!modal) return;
+  document.querySelectorAll('[data-store-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sid  = btn.dataset.storeId;
+      const bal  = btn.dataset.balance;
+      const sel  = modal.querySelector('#payoutStoreSelect');
+      const amt  = modal.querySelector('#payoutAmountInput');
+      const hint = modal.querySelector('#payoutBalanceHint');
+      if (sel && sid) {
+        for (const opt of sel.options) { opt.selected = opt.value === sid; }
+      }
+      if (amt && bal) amt.value = bal;
+      if (hint && bal) hint.textContent = `Outstanding balance: GH₵ ${parseFloat(bal).toFixed(2)}`;
+    });
+  });
+});
+</script>
+
+{% endblock %}

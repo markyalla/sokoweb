@@ -1,0 +1,249 @@
+{% extends "store/base.html" %}
+{% block title %}Earnings & Cashout{% endblock %}
+{% block page_title %}Earnings & Cashout{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="fw-bold mb-0">Earnings — {{ store.name }}</h4>
+</div>
+
+<!-- KPI cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <span class="text-muted small fw-semibold">Total Earned</span>
+                <h4 class="fw-bold mt-2 mb-0" style="color:var(--soko-primary);">
+                    GH₵ {{ '%.2f'|format(total_earned) }}
+                </h4>
+                <p class="text-muted small mb-0">80% of all delivered sales</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <span class="text-muted small fw-semibold">Available Balance</span>
+                <h4 class="fw-bold mt-2 mb-0 text-success">GH₵ {{ '%.2f'|format(available_balance) }}</h4>
+                <p class="text-muted small mb-0">Ready to request</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <span class="text-muted small fw-semibold">Pending Cashout</span>
+                <h4 class="fw-bold mt-2 mb-0 text-warning">GH₵ {{ '%.2f'|format(pending_cashout) }}</h4>
+                <p class="text-muted small mb-0">Awaiting admin payment</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-body">
+                <span class="text-muted small fw-semibold">Total Paid Out</span>
+                <h4 class="fw-bold mt-2 mb-0 text-secondary">GH₵ {{ '%.2f'|format(paid_out) }}</h4>
+                <p class="text-muted small mb-0">Already received</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Cashout request form -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <span class="fw-semibold"><i class="bi bi-cash-coin me-2" style="color:var(--soko-primary);"></i>Request Cashout</span>
+            </div>
+            <div class="card-body">
+                {% if available_balance >= 10 %}
+                <form method="POST" action="{{ url_for('store_owner.request_cashout') }}">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small">Amount (GH₵)</label>
+                        <input type="number" name="amount" step="0.01" min="10"
+                               max="{{ '%.2f'|format(available_balance) }}"
+                               class="form-control" placeholder="10.00" required>
+                        <div class="form-text">
+                            Available: <strong>GH₵ {{ '%.2f'|format(available_balance) }}</strong> · Min GH₵ 10.00
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small">Payment Method</label>
+                        <select name="method" class="form-select" id="cashoutMethod" onchange="togglePaymentFields()">
+                            <option value="momo">Mobile Money (MoMo)</option>
+                            <option value="bank">Bank Transfer</option>
+                            <option value="cash">Cash</option>
+                        </select>
+                    </div>
+
+                    <!-- MoMo fields -->
+                    <div id="momoFields" class="mb-3">
+                        <label class="form-label fw-semibold small">MoMo Number</label>
+                        <input type="tel" name="momo_number" id="momoNumber" class="form-control"
+                               value="{{ store.phone_number or '' }}"
+                               placeholder="e.g. 0244123456" maxlength="15">
+                        {% if store.phone_number %}
+                        <div class="form-text">Pre-filled from your store profile. Edit if different.</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Bank Transfer fields -->
+                    <div id="bankFields" class="mb-3" style="display:none;">
+                        <div class="mb-2">
+                            <label class="form-label fw-semibold small">Account Number</label>
+                            <input type="text" name="account_number" class="form-control"
+                                   placeholder="e.g. 1234567890">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label fw-semibold small">Account Holder Name</label>
+                            <input type="text" name="account_holder" class="form-control"
+                                   placeholder="e.g. John Mensah">
+                        </div>
+                        <div>
+                            <label class="form-label fw-semibold small">Bank Name</label>
+                            <input type="text" name="bank_name" class="form-control"
+                                   placeholder="e.g. GCB Bank">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn w-100 text-white fw-semibold"
+                            style="background:var(--soko-primary);">
+                        <i class="bi bi-send me-2"></i>Submit Cashout Request
+                    </button>
+                </form>
+                {% else %}
+                <div class="text-center py-3 text-muted">
+                    <i class="bi bi-wallet2 fs-2 d-block mb-2"></i>
+                    <p class="mb-0">
+                        {% if available_balance > 0 %}
+                            Minimum cashout is GH₵ 10.00.<br>
+                            You have GH₵ {{ '%.2f'|format(available_balance) }} available.
+                        {% else %}
+                            No available balance yet.
+                        {% endif %}
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Cashout history -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3">
+                <span class="fw-semibold"><i class="bi bi-clock-history me-2"></i>Cashout History</span>
+            </div>
+            <div class="card-body p-0">
+                {% if cashouts %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">Date</th>
+                                <th>Amount</th>
+                                <th>Method</th>
+                                <th>Note</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in cashouts %}
+                            <tr>
+                                <td class="ps-3 small text-muted">
+                                    {{ c.created_at.strftime('%b %d, %Y') if c.created_at else '—' }}
+                                </td>
+                                <td class="fw-semibold">GH₵ {{ '%.2f'|format(c.amount|float) }}</td>
+                                <td>
+                                    {% if c.method == 'momo' %}
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-phone me-1"></i>MoMo</span>
+                                    {% elif c.method == 'bank' %}
+                                    <span class="badge bg-primary"><i class="bi bi-bank me-1"></i>Bank</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Cash</span>
+                                    {% endif %}
+                                </td>
+                                <td class="small text-muted">{{ c.note or '—' }}</td>
+                                <td>
+                                    {% if c.status == 'paid' %}
+                                    <span class="badge bg-success"><i class="bi bi-check me-1"></i>Paid</span>
+                                    {% elif c.status == 'pending' %}
+                                    <span class="badge bg-warning text-dark">Pending</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">{{ c.status|title }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-clock-history fs-1 d-block mb-2"></i>
+                    No cashout requests yet.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Earnings breakdown -->
+{% if earnings_rows %}
+<div class="card border-0 shadow-sm mt-4">
+    <div class="card-header bg-white py-3">
+        <span class="fw-semibold"><i class="bi bi-table me-2"></i>Delivered Orders Breakdown</span>
+        <span class="ms-2 text-muted small">(your 80% share per order)</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3">Order ID</th>
+                        <th>Delivered</th>
+                        <th>Order Subtotal</th>
+                        <th>Your Cut (80%)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in earnings_rows %}
+                    <tr>
+                        <td class="ps-3 small fw-mono text-muted">#{{ (row.order.id|string)[:8] }}</td>
+                        <td class="small text-muted">
+                            {{ row.order.delivered_at.strftime('%b %d, %Y') if row.order.delivered_at else '—' }}
+                        </td>
+                        <td>GH₵ {{ '%.2f'|format(row.subtotal) }}</td>
+                        <td class="fw-semibold text-success">GH₵ {{ '%.2f'|format(row.store_cut) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <td colspan="3" class="ps-3 fw-bold text-end">Total:</td>
+                        <td class="fw-bold text-success">GH₵ {{ '%.2f'|format(total_earned) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function togglePaymentFields() {
+    var method = document.getElementById('cashoutMethod').value;
+    document.getElementById('momoFields').style.display = method === 'momo' ? '' : 'none';
+    document.getElementById('bankFields').style.display = method === 'bank' ? '' : 'none';
+
+    // required attribute management
+    document.querySelector('[name=momo_number]').required = method === 'momo';
+    document.querySelector('[name=account_number]').required = method === 'bank';
+    document.querySelector('[name=account_holder]').required = method === 'bank';
+    document.querySelector('[name=bank_name]').required = method === 'bank';
+}
+// run on load so initial state is correct
+document.addEventListener('DOMContentLoaded', togglePaymentFields);
+</script>
+{% endblock %}

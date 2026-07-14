@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .dash-hero { background: #FF8000; color: #fff; border-radius: 16px; padding: 24px 28px; margin-bottom: 28px; }
+  .hero-chip { background: rgba(255,255,255,0.15); border-radius: 10px; padding: 10px 18px; text-align: center; min-width: 80px; }
+  .hero-chip-dark { background: rgba(0,0,0,0.15); border-radius: 10px; padding: 10px 18px; text-align: center; min-width: 80px; }
+  .hero-chip .val, .hero-chip-dark .val { font-size: 1.5rem; font-weight: 900; line-height: 1; }
+  .hero-chip .lbl, .hero-chip-dark .lbl { font-size: 0.63rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.85; margin-top: 3px; }
+  .mod-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.09em; font-weight: 800; color: #FF8000; border-left: 3px solid #FF8000; padding-left: 10px; margin: 28px 0 14px; }
+  .kpi-card { background: #fff; border: none; border-radius: 14px; box-shadow: 0 1px 5px rgba(0,0,0,0.07); padding: 18px; height: 100%; }
+  .kpi-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+  .kpi-label { font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; color: #9ca3af; }
+  .kpi-value { font-size: 1.8rem; font-weight: 900; line-height: 1.1; color: #111; }
+  .kpi-sub { font-size: 0.73rem; color: #6b7280; margin-top: 4px; }
+  .sec-card { background: #fff; border-radius: 14px; box-shadow: 0 1px 5px rgba(0,0,0,0.07); margin-bottom: 20px; overflow: hidden; }
+  .sec-header { padding: 14px 20px; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; justify-content: space-between; }
+  .sec-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800; color: #6b7280; margin: 0; }
+  .scroll-y { max-height: 300px; overflow-y: auto; }
+  .table th { font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.04em; color: #9ca3af; font-weight: 700; }
+  .table td { font-size: 0.83rem; vertical-align: middle; }
+  .link-orange { color: #FF8000; text-decoration: none; font-size: 0.78rem; }
+  .link-orange:hover { color: #e07000; }
+</style>
+
+<!-- ── Hero ──────────────────────────────────────────────────────────────── -->
+<div class="dash-hero">
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-3">
+    <div>
+      <h5 class="fw-bold mb-1">SokoApp Dashboard</h5>
+      <p class="mb-0" style="color:rgba(255,255,255,0.85);font-size:0.85rem;">
+        Full system overview &mdash; all databases live
+      </p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <div class="hero-chip">
+        <div class="val">{{ stats.users_total }}</div>
+        <div class="lbl">Users</div>
+      </div>
+      <div class="hero-chip">
+        <div class="val">{{ stats.orders_total }}</div>
+        <div class="lbl">Orders</div>
+      </div>
+      <div class="hero-chip">
+        <div class="val">{{ stats.deliveries_active }}</div>
+        <div class="lbl">Live</div>
+      </div>
+      <div class="hero-chip-dark">
+        <div class="val">GHS {{ "%.0f"|format(stats.orders_revenue) }}</div>
+        <div class="lbl">Revenue</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Account & Users ────────────────────────────────────────────────── -->
+<div class="mod-label">Account &amp; Users</div>
+<div class="row g-3 mb-3">
+  {% for icon, bg, color, val, label, sub in [
+    ('bi-people-fill',        '#fff7ed', '#FF8000',  stats.users_total,    'Total Users',     stats.users_active|string + ' active'),
+    ('bi-person-badge-fill',  '#f0fdf4', '#16a34a',  stats.drivers_total,  'Total Drivers',   stats.drivers_active|string + ' approved'),
+    ('bi-shield-check',       '#f0fdf4', '#15803d',  stats.kyc_approved,   'KYC Approved',    ''),
+    ('bi-shield-exclamation', '#fef3c7', '#d97706',  stats.kyc_pending,    'KYC Pending',     'Needs review'),
+  ] %}
+  <div class="col-6 col-sm-3">
+    <div class="kpi-card">
+      <div class="d-flex align-items-start gap-3">
+        <div class="kpi-icon" style="background:{{ bg }};color:{{ color }};"><i class="bi {{ icon }}"></i></div>
+        <div>
+          <div class="kpi-label">{{ label }}</div>
+          <div class="kpi-value">{{ val }}</div>
+          {% if sub %}<div class="kpi-sub">{{ sub }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+<div class="row g-3 mb-2">
+  <div class="col-6 col-sm-3">
+    <div class="kpi-card">
+      <div class="d-flex align-items-start gap-3">
+        <div class="kpi-icon" style="background:#eff6ff;color:#1d4ed8;"><i class="bi bi-wifi"></i></div>
+        <div>
+          <div class="kpi-label">Drivers Online</div>
+          <div class="kpi-value">{{ stats.drivers_online }}</div>
+          <div class="kpi-sub">Available now</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SokoShopper ────────────────────────────────────────────────────── -->
+<div class="mod-label">SokoShopper</div>
+<div class="row g-3 mb-3">
+  {% for icon, bg, color, val, label, sub in [
+    ('bi-shop-window',    '#fff7ed', '#FF8000',  stats.stores_total,     'Total Stores',   stats.stores_open|string + ' open now'),
+    ('bi-bag-check-fill', '#f0fdf4', '#16a34a',  stats.orders_total,     'Total Orders',   stats.orders_delivered|string + ' delivered'),
+    ('bi-box-seam-fill',  '#eff6ff', '#1d4ed8',  stats.products_total,   'Products',       stats.categories_total|string + ' categories'),
+    ('bi-clock-history',  '#fef3c7', '#d97706',  stats.orders_pending,   'Pending Orders', 'Awaiting action'),
+  ] %}
+  <div class="col-6 col-sm-3">
+    <div class="kpi-card">
+      <div class="d-flex align-items-start gap-3">
+        <div class="kpi-icon" style="background:{{ bg }};color:{{ color }};"><i class="bi {{ icon }}"></i></div>
+        <div>
+          <div class="kpi-label">{{ label }}</div>
+          <div class="kpi-value">{{ val }}</div>
+          {% if sub %}<div class="kpi-sub">{{ sub }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ── SokoDelivery ───────────────────────────────────────────────────── -->
+<div class="mod-label">SokoDelivery (Parcels)</div>
+<div class="row g-3 mb-3">
+  {% for icon, bg, color, val, label, sub in [
+    ('bi-box2-fill',          '#fff7ed', '#FF8000',  stats.deliveries_total,  'Parcel Orders',    ''),
+    ('bi-truck',              '#eff6ff', '#1d4ed8',  stats.deliveries_active, 'Active Now',       'In transit / assigned'),
+    ('bi-check-circle-fill',  '#f0fdf4', '#16a34a',  stats.deliveries_done,   'Completed',        ''),
+  ] %}
+  <div class="col-6 col-sm-3">
+    <div class="kpi-card">
+      <div class="d-flex align-items-start gap-3">
+        <div class="kpi-icon" style="background:{{ bg }};color:{{ color }};"><i class="bi {{ icon }}"></i></div>
+        <div>
+          <div class="kpi-label">{{ label }}</div>
+          <div class="kpi-value">{{ val }}</div>
+          {% if sub %}<div class="kpi-sub">{{ sub }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ── SokoSusu ───────────────────────────────────────────────────────── -->
+<div class="mod-label">SokoSusu</div>
+<div class="row g-3 mb-4">
+  {% for icon, bg, color, val, label, sub in [
+    ('bi-people-fill',    '#f5f3ff', '#7c3aed', stats.susu_total,  'Total Groups',  ''),
+    ('bi-collection-fill','#f0fdf4', '#16a34a', stats.susu_active, 'Active Groups', 'Contributions ongoing'),
+  ] %}
+  <div class="col-6 col-sm-3">
+    <div class="kpi-card">
+      <div class="d-flex align-items-start gap-3">
+        <div class="kpi-icon" style="background:{{ bg }};color:{{ color }};"><i class="bi {{ icon }}"></i></div>
+        <div>
+          <div class="kpi-label">{{ label }}</div>
+          <div class="kpi-value">{{ val }}</div>
+          {% if sub %}<div class="kpi-sub">{{ sub }}</div>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ── Recent Activity ────────────────────────────────────────────────── -->
+<div class="row g-4">
+  <!-- Recent Shopper Orders -->
+  <div class="col-lg-6">
+    <div class="sec-card">
+      <div class="sec-header">
+        <span class="sec-title">Recent Shopper Orders</span>
+        <a href="{{ url_for('shopper.orders') }}" class="link-orange">View all →</a>
+      </div>
+      <div class="scroll-y">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light" style="position:sticky;top:0;z-index:2;">
+            <tr>
+              <th class="ps-3">Order</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th class="pe-3">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for order in recent_orders %}
+            <tr>
+              <td class="ps-3 font-monospace small text-muted fw-semibold">
+                {{ order.id|string|upper|truncate(8,True,'') }}
+              </td>
+              <td class="fw-bold small" style="color:#FF8000;">
+                GHS {{ "%.2f"|format(order.total_amount|float if order.total_amount else 0) }}
+              </td>
+              <td>
+                {% set sc = {
+                  'delivered':  'bg-success-subtle text-success',
+                  'pending':    'bg-warning-subtle text-warning',
+                  'cancelled':  'bg-danger-subtle text-danger',
+                  'preparing':  'bg-info-subtle text-info'
+                } %}
+                <span class="badge rounded-pill {{ sc.get(order.status,'bg-secondary-subtle text-secondary') }}"
+                      style="font-size:0.68rem;">
+                  {{ order.status|replace('_',' ')|title }}
+                </span>
+              </td>
+              <td class="pe-3 small text-muted">
+                {{ order.created_at.strftime('%d %b') if order.created_at else '—' }}
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="4" class="text-center py-4 text-muted small">
+                <i class="bi bi-inbox d-block fs-3 mb-1"></i>No orders yet
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Active Parcel Deliveries -->
+  <div class="col-lg-6">
+    <div class="sec-card">
+      <div class="sec-header">
+        <span class="sec-title">Active Parcel Deliveries</span>
+        <a href="{{ url_for('delivery.orders_list') }}" class="link-orange">View all →</a>
+      </div>
+      <div class="scroll-y">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light" style="position:sticky;top:0;z-index:2;">
+            <tr>
+              <th class="ps-3">ID</th>
+              <th>Route</th>
+              <th>Fee</th>
+              <th class="pe-3">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for da in recent_deliveries %}
+            <tr>
+              <td class="ps-3 font-monospace small text-muted fw-semibold">
+                {{ da.id|string|upper|truncate(8,True,'') }}
+              </td>
+              <td>
+                <div class="text-truncate small" style="max-width:150px;">
+                  <i class="bi bi-circle-fill text-success me-1" style="font-size:5px;"></i>
+                  {{ da.pickup_address or '—' }}
+                </div>
+                <div class="text-truncate small text-muted" style="max-width:150px;">
+                  <i class="bi bi-geo-alt-fill text-danger me-1" style="font-size:7px;"></i>
+                  {{ da.dropoff_address or '—' }}
+                </div>
+              </td>
+              <td class="fw-bold small" style="color:#FF8000;">
+                {% if da.delivery_fee %}GHS {{ "%.2f"|format(da.delivery_fee|float) }}{% else %}—{% endif %}
+              </td>
+              <td class="pe-3">
+                {% set dc = {
+                  'pending':   'bg-secondary-subtle text-secondary',
+                  'assigned':  'bg-warning-subtle text-warning',
+                  'accepted':  'bg-info-subtle text-info',
+                  'picked_up': 'bg-primary-subtle text-primary',
+                  'in_transit':'bg-success-subtle text-success'
+                } %}
+                <span class="badge rounded-pill {{ dc.get(da.status,'bg-secondary-subtle text-secondary') }}"
+                      style="font-size:0.68rem;">
+                  {{ da.status|replace('_',' ')|title }}
+                </span>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="4" class="text-center py-4 text-muted small">
+                <i class="bi bi-truck d-block fs-3 mb-1"></i>No active deliveries
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── System Health ──────────────────────────────────────────────────── -->
+<div class="sec-card p-4">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div class="d-flex align-items-center gap-3">
+      <div class="kpi-icon" style="background:#f0fdf4;color:#16a34a;">
+        <i class="bi bi-hdd-network-fill fs-5"></i>
+      </div>
+      <div>
+        <div class="fw-bold small" style="color:#111;">All Systems Operational</div>
+        <div class="text-muted" style="font-size:0.75rem;">
+          sokoaccount &middot; sokoshopper &middot; sokodelivery &middot; sokosusu &middot; sokobank
+        </div>
+      </div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle small">
+        <i class="bi bi-circle-fill me-1" style="font-size:0.4rem;"></i>DB Connected
+      </span>
+      <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle small">
+        <i class="bi bi-circle-fill me-1" style="font-size:0.4rem;"></i>API Online
+      </span>
+      <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle small">
+        <i class="bi bi-circle-fill me-1" style="font-size:0.4rem;"></i>MinIO Storage
+      </span>
+    </div>
+  </div>
+</div>
+{% endblock %}

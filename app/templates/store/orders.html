@@ -1,0 +1,154 @@
+{% extends "store/base.html" %}
+{% block title %}Orders{% endblock %}
+{% block page_title %}My Orders{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="fw-bold mb-0">Orders — {{ store.name }}</h4>
+</div>
+
+<!-- Tab navigation -->
+<ul class="nav nav-tabs mb-4" id="orderTabs">
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'active' %}active{% endif %} d-flex align-items-center gap-2"
+           href="{{ url_for('store_owner.orders', tab='active') }}">
+            <i class="bi bi-clock"></i> Active
+            {% if active_orders %}
+            <span class="badge rounded-pill bg-warning text-dark">{{ active_orders|length }}</span>
+            {% endif %}
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'completed' %}active{% endif %} d-flex align-items-center gap-2"
+           href="{{ url_for('store_owner.orders', tab='completed') }}">
+            <i class="bi bi-check-circle"></i> Completed
+            {% if completed_orders %}
+            <span class="badge rounded-pill bg-success">{{ completed_orders|length }}</span>
+            {% endif %}
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if tab == 'history' %}active{% endif %} d-flex align-items-center gap-2"
+           href="{{ url_for('store_owner.orders', tab='history') }}">
+            <i class="bi bi-x-circle"></i> History
+            {% if history_orders %}
+            <span class="badge rounded-pill bg-secondary">{{ history_orders|length }}</span>
+            {% endif %}
+        </a>
+    </li>
+</ul>
+
+<!-- Active orders -->
+{% if tab == 'active' %}
+    {% set display_orders = active_orders %}
+    {% set empty_msg = "No active orders right now." %}
+{% elif tab == 'completed' %}
+    {% set display_orders = completed_orders %}
+    {% set empty_msg = "No completed orders yet." %}
+{% else %}
+    {% set display_orders = history_orders %}
+    {% set empty_msg = "No cancelled or refunded orders." %}
+{% endif %}
+
+{% if display_orders %}
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3">Order ID</th>
+                        <th>Customer</th>
+                        <th>Items</th>
+                        <th>Subtotal</th>
+                        <th>Status</th>
+                        <th>Placed</th>
+                        {% if tab == 'active' %}<th>Action</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for o in display_orders %}
+                    <tr>
+                        <td class="ps-3">
+                            <span class="fw-mono small text-muted">#{{ (o.id|string)[:8] }}</span>
+                        </td>
+                        <td>
+                            <span class="fw-semibold">{{ customers_map.get(o.user_id, 'Customer') }}</span>
+                        </td>
+                        <td>
+                            {% if o.items %}
+                            <div class="small text-muted">
+                                {% for item in o.items[:2] %}
+                                    {{ item.quantity }}× {{ item.name }}{% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                                {% if o.items|length > 2 %}
+                                    <span class="text-muted">+{{ o.items|length - 2 }} more</span>
+                                {% endif %}
+                            </div>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td class="fw-semibold">GH₵ {{ '%.2f'|format(o.subtotal|float if o.subtotal else 0) }}</td>
+                        <td>
+                            {% set s = o.status %}
+                            {% if s == 'delivered' %}
+                                <span class="badge bg-success">Delivered</span>
+                            {% elif s == 'cancelled' %}
+                                <span class="badge bg-danger">Cancelled</span>
+                            {% elif s == 'refunded' %}
+                                <span class="badge bg-danger">Refunded</span>
+                            {% elif s == 'failed' %}
+                                <span class="badge bg-secondary">Failed</span>
+                            {% elif s == 'payment_confirmed' %}
+                                <span class="badge bg-info text-dark">Paid — New</span>
+                            {% elif s == 'preparing' %}
+                                <span class="badge bg-warning text-dark">Preparing</span>
+                            {% elif s == 'ready_for_pickup' %}
+                                <span class="badge bg-primary">Ready for Pickup</span>
+                            {% elif s in ['assigned_to_driver','picked_up','in_transit'] %}
+                                <span class="badge bg-info text-dark">With Driver</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ s|replace('_',' ')|title }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small">
+                            {{ o.created_at.strftime('%b %d, %H:%M') if o.created_at else '—' }}
+                        </td>
+                        {% if tab == 'active' %}
+                        <td>
+                            {% if o.status == 'payment_confirmed' %}
+                            <form method="POST" action="{{ url_for('store_owner.update_order_status', order_id=o.id) }}"
+                                  class="d-inline">
+                                <input type="hidden" name="status" value="preparing">
+                                <button type="submit" class="btn btn-sm btn-warning fw-semibold">
+                                    <i class="bi bi-fire me-1"></i>Start Preparing
+                                </button>
+                            </form>
+                            {% elif o.status == 'preparing' %}
+                            <form method="POST" action="{{ url_for('store_owner.update_order_status', order_id=o.id) }}"
+                                  class="d-inline">
+                                <input type="hidden" name="status" value="ready_for_pickup">
+                                <button type="submit" class="btn btn-sm btn-primary fw-semibold">
+                                    <i class="bi bi-bag-check me-1"></i>Mark Ready
+                                </button>
+                            </form>
+                            {% else %}
+                            <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card border-0 shadow-sm">
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-receipt fs-1 d-block mb-2"></i>
+        {{ empty_msg }}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,616 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .page-hero { background: #FF8000; color: #fff; border-radius: 16px; padding: 24px 28px; margin-bottom: 24px; }
+  .hero-breadcrumb a { color: rgba(255,255,255,0.7); text-decoration: none; }
+  .hero-breadcrumb a:hover { color: #fff; }
+  .hero-breadcrumb .sep { color: rgba(255,255,255,0.4); margin: 0 6px; }
+  .status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 12px; border-radius: 999px; font-size: 0.76rem; font-weight: 700; }
+  .pill-open   { background: rgba(255,255,255,0.22); color: #fff; }
+  .pill-closed { background: rgba(0,0,0,0.22); color: #ffd0a0; }
+  .hero-stat { background: rgba(255,255,255,0.15); border-radius: 10px; padding: 10px 18px; text-align: center; min-width: 76px; }
+  .hero-stat .val { font-size: 1.5rem; font-weight: 900; line-height: 1; }
+  .hero-stat .lbl { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.8; margin-top: 3px; }
+  .sec-card { background: #fff; border-radius: 14px; box-shadow: 0 1px 5px rgba(0,0,0,0.07); margin-bottom: 20px; overflow: hidden; }
+  .sec-header { padding: 14px 20px; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; justify-content: space-between; }
+  .sec-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 800; color: #6b7280; margin: 0; }
+  .scroll-y { max-height: 420px; overflow-y: auto; }
+  .scroll-xy { overflow-x: auto; max-height: 520px; overflow-y: auto; }
+  .table th { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: #9ca3af; font-weight: 700; white-space: nowrap; }
+  .table td { font-size: 0.84rem; vertical-align: middle; }
+  .btn-orange { background: #FF8000 !important; border-color: #FF8000 !important; color: #fff !important; }
+  .btn-orange:hover { background: #e07000 !important; border-color: #e07000 !important; }
+  .driver-card { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 10px; border: 1px solid #f3f4f6; margin-bottom: 6px; }
+  .driver-avatar { width: 34px; height: 34px; border-radius: 50%; background: #fff7ed; color: #FF8000; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.8rem; flex-shrink: 0; }
+  .items-inline .item-chip { display: inline-flex; align-items: center; gap: 3px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 2px 7px; font-size: 0.73rem; margin: 1px; white-space: nowrap; }
+  .item-qty { color: #FF8000; font-weight: 700; }
+  .cust-name { font-weight: 600; color: #111; font-size: 0.83rem; }
+  .cust-phone { color: #9ca3af; font-size: 0.72rem; }
+  .badge-s-pending         { background: #fef3c7; color: #92400e; border-radius: 20px; }
+  .badge-s-preparing       { background: #dbeafe; color: #1e40af; border-radius: 20px; }
+  .badge-s-delivered       { background: #d1fae5; color: #065f46; border-radius: 20px; }
+  .badge-s-cancelled       { background: #fee2e2; color: #991b1b; border-radius: 20px; }
+  .badge-s-ready_for_pickup{ background: #ede9fe; color: #5b21b6; border-radius: 20px; }
+  .badge-s-default         { background: #f3f4f6; color: #374151; border-radius: 20px; }
+  .info-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 0.83rem; color: #374151; border-bottom: 1px solid #f9fafb; }
+  .info-row:last-child { border-bottom: none; }
+  .info-row i { color: #FF8000; width: 16px; flex-shrink: 0; }
+</style>
+
+<!-- ── Hero ─────────────────────────────────────────────────────────────── -->
+<div class="page-hero">
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-3">
+    <div>
+      <div class="hero-breadcrumb mb-2" style="font-size:0.8rem;">
+        <a href="{{ url_for('shopper.index') }}">Stores</a>
+        <span class="sep">/</span>
+        <span style="color:#fff;">{{ store.name }}</span>
+      </div>
+      <h4 class="fw-bold mb-2">{{ store.name }}</h4>
+      <p class="mb-3" style="color:rgba(255,255,255,0.85);font-size:0.85rem;">
+        <i class="bi bi-geo-alt me-1"></i>{{ store.address }}{% if store.city %}, {{ store.city }}{% endif %}
+      </p>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <span class="status-pill {{ 'pill-open' if store.is_open else 'pill-closed' }}">
+          <i class="bi bi-circle-fill" style="font-size:0.4rem;"></i>
+          {{ 'Open' if store.is_open else 'Closed' }}
+        </span>
+        <form action="{{ url_for('shopper.toggle_store_open', id=store.id) }}" method="POST" class="d-inline">
+          <button type="submit" class="btn btn-sm py-1 px-3"
+                  style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.35);color:#fff;border-radius:8px;font-size:0.78rem;">
+            Toggle {{ 'Off' if store.is_open else 'On' }}
+          </button>
+        </form>
+      </div>
+    </div>
+    <div class="d-flex gap-2">
+      <div class="hero-stat">
+        <div class="val">{{ products|length }}</div>
+        <div class="lbl">Products</div>
+      </div>
+      <div class="hero-stat">
+        <div class="val">{{ orders|length }}</div>
+        <div class="lbl">Orders</div>
+      </div>
+      {% set delivered_count = orders|selectattr('status','equalto','delivered')|list|length %}
+      <div class="hero-stat">
+        <div class="val">{{ delivered_count }}</div>
+        <div class="lbl">Delivered</div>
+      </div>
+      {% set pending_count = orders|selectattr('status','equalto','pending')|list|length %}
+      <div class="hero-stat" style="background:rgba(0,0,0,0.15);">
+        <div class="val">{{ pending_count }}</div>
+        <div class="lbl">Pending</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+
+  <!-- ── Left Sidebar ──────────────────────────────────────────────────── -->
+  <div class="col-lg-3">
+
+    <!-- Store Info -->
+    <div class="sec-card mb-4">
+      <div class="sec-header">
+        <span class="sec-title">Store Info</span>
+      </div>
+      <div class="p-3">
+        {% if store.phone_number %}
+        <div class="info-row"><i class="bi bi-telephone"></i>{{ store.phone_number }}</div>
+        {% endif %}
+        {% if store.email %}
+        <div class="info-row"><i class="bi bi-envelope"></i>{{ store.email }}</div>
+        {% endif %}
+        {% if store.opens_at or store.closes_at %}
+        <div class="info-row"><i class="bi bi-clock"></i>{{ store.opens_at or '--' }} – {{ store.closes_at or '--' }}</div>
+        {% endif %}
+        {% if store.delivery_fee %}
+        <div class="info-row"><i class="bi bi-truck"></i>Delivery: GHS {{ "%.2f"|format(store.delivery_fee|float) }}</div>
+        {% endif %}
+        {% if store.min_order_amount %}
+        <div class="info-row"><i class="bi bi-bag"></i>Min order: GHS {{ "%.2f"|format(store.min_order_amount|float) }}</div>
+        {% endif %}
+        {% if store.rating %}
+        <div class="info-row"><i class="bi bi-star-fill"></i>{{ "%.1f"|format(store.rating|float) }} ({{ store.total_reviews }} reviews)</div>
+        {% endif %}
+        <div class="info-row">
+          <i class="bi bi-circle-fill" style="color:{{ '#16a34a' if store.is_open else '#dc2626' }};font-size:0.5rem;"></i>
+          <span style="color:{{ '#16a34a' if store.is_open else '#dc2626' }};font-weight:600;">{{ 'Open for orders' if store.is_open else 'Currently closed' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nearby Drivers -->
+    <div class="sec-card">
+      <div class="sec-header">
+        <span class="sec-title">Nearby Drivers</span>
+        <span class="badge rounded-pill" style="background:#fff7ed;color:#FF8000;font-size:0.68rem;">
+          {{ eligible_drivers|length }} online
+        </span>
+      </div>
+      <div class="p-3 scroll-y" style="max-height:300px;">
+        {% if eligible_drivers %}
+          {% for d in eligible_drivers %}
+          <div class="driver-card">
+            <div class="driver-avatar">{{ d.name[0]|upper }}</div>
+            <div class="flex-grow-1">
+              <div class="fw-semibold small">{{ d.name }}</div>
+              <div class="text-muted" style="font-size:0.7rem;">{{ d.vehicle_type|title }} · {{ "%.1f"|format(d.distance) }}km</div>
+            </div>
+            <span class="badge" style="background:#f0fdf4;color:#16a34a;font-size:0.65rem;border-radius:20px;">● Online</span>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-center py-4 text-muted small">
+            <i class="bi bi-bicycle fs-3 d-block mb-2 text-muted"></i>
+            No drivers in range
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Products Section ───────────────────────────────────────────────── -->
+  <div class="col-lg-9">
+    <div class="sec-card">
+      <div class="sec-header">
+        <span class="sec-title">Products ({{ products|length }})</span>
+        <button class="btn btn-sm btn-orange px-3" data-bs-toggle="modal" data-bs-target="#addProductModal">
+          <i class="bi bi-plus-lg me-1"></i>Add Product
+        </button>
+      </div>
+      <div class="scroll-y">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light" style="position:sticky;top:0;z-index:2;">
+            <tr>
+              <th class="ps-3" style="width:50px;">Image</th>
+              <th>Product</th>
+              <th>Price</th>
+              <th class="text-center">In Stock</th>
+              <th class="pe-3 text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for product in products %}
+            <tr>
+              <td class="ps-3">
+                {% if product.image_url %}
+                <img src="{{ resolve_media(product.image_url) }}" class="rounded-2"
+                     style="width:42px;height:42px;object-fit:cover;"
+                     onerror="this.src='https://placehold.co/42x42?text=?'">
+                {% else %}
+                <div class="bg-light rounded-2 d-flex align-items-center justify-content-center" style="width:42px;height:42px;">
+                  <i class="bi bi-bag text-muted"></i>
+                </div>
+                {% endif %}
+              </td>
+              <td>
+                <div class="fw-semibold">{{ product.name }}</div>
+                {% if product.description %}
+                <div class="text-muted small text-truncate" style="max-width:220px;">{{ product.description }}</div>
+                {% endif %}
+              </td>
+              <td class="fw-bold" style="color:#FF8000;">GHS {{ "%.2f"|format(product.base_price|float) }}</td>
+              <td class="text-center">
+                <form action="{{ url_for('shopper.toggle_product_availability', id=product.id) }}" method="POST">
+                  <button type="submit"
+                          class="btn btn-sm px-3 {% if product.is_available %}btn-success{% else %}btn-outline-secondary{% endif %}"
+                          style="border-radius:20px;font-size:0.72rem;font-weight:700;">
+                    {{ 'YES' if product.is_available else 'NO' }}
+                  </button>
+                </form>
+              </td>
+              <td class="pe-3 text-end">
+                <button class="btn btn-sm btn-outline-secondary me-1"
+                        data-bs-toggle="modal" data-bs-target="#editProductModal{{ product.id }}">
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <form action="{{ url_for('shopper.delete_product', id=product.id) }}" method="POST" class="d-inline"
+                      onsubmit="return confirm('Delete \'{{ product.name }}\'? This cannot be undone.')">
+                  <button type="submit" class="btn btn-sm btn-outline-danger">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </form>
+              </td>
+            </tr>
+
+            <!-- Edit Product Modal -->
+            <div class="modal fade" id="editProductModal{{ product.id }}" tabindex="-1">
+              <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow rounded-4">
+                  <div class="modal-header pt-4 px-4" style="border-bottom:2px solid #FF8000;">
+                    <h6 class="modal-title fw-bold">Edit: {{ product.name }}</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                  </div>
+                  <form action="{{ url_for('shopper.edit_product', id=product.id) }}" method="POST">
+                    <div class="modal-body px-4">
+                      <div class="mb-3">
+                        <label class="form-label small fw-bold text-uppercase text-muted">Name</label>
+                        <input type="text" name="name" class="form-control" value="{{ product.name }}" required>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label small fw-bold text-uppercase text-muted">Description</label>
+                        <textarea name="description" class="form-control" rows="2">{{ product.description }}</textarea>
+                      </div>
+                      <div class="row g-2 mb-3">
+                        <div class="col-7">
+                          <label class="form-label small fw-bold text-uppercase text-muted">Price (GHS)</label>
+                          <input type="number" step="0.01" name="price" class="form-control" value="{{ product.base_price }}" required>
+                        </div>
+                        <div class="col-5 d-flex align-items-end pb-1">
+                          <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="is_available"
+                                   id="avail{{ product.id }}" {% if product.is_available %}checked{% endif %}>
+                            <label class="form-check-label small" for="avail{{ product.id }}">In Stock</label>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="mb-3">
+                        <label class="form-label small fw-bold text-uppercase text-muted">Product Image</label>
+                        <div class="input-group mb-2">
+                          <input type="file" class="form-control form-control-sm productImageFile" accept="image/*" data-bucket="products">
+                          <button class="btn btn-sm btn-orange uploadBtn" type="button">Upload</button>
+                        </div>
+                        <input type="text" name="image_url" class="form-control form-control-sm productImageUrl"
+                               value="{{ product.image_url or '' }}" placeholder="Image path">
+                        <div class="uploadStatus small mt-1"></div>
+                        <div class="mt-2 current-preview text-center">
+                          {% if product.image_url %}
+                          <img src="{{ resolve_media(product.image_url) }}" class="rounded shadow-sm" style="max-height:80px;">
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="modal-footer border-0 pb-4 px-4">
+                      <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Cancel</button>
+                      <button type="submit" class="btn btn-sm btn-orange px-4">Save Changes</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Orders Section ──────────────────────────────────────────────────── -->
+<div class="sec-card">
+  <div class="sec-header">
+    <span class="sec-title">Store Orders ({{ orders|length }})</span>
+    <div class="d-flex gap-2 flex-wrap">
+      {% set pend = orders|selectattr('status','equalto','pending')|list|length %}
+      {% set delv = orders|selectattr('status','equalto','delivered')|list|length %}
+      <span class="badge rounded-pill" style="background:#fff7ed;color:#FF8000;font-size:0.7rem;">{{ pend }} pending</span>
+      <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle" style="font-size:0.7rem;">{{ delv }} delivered</span>
+    </div>
+  </div>
+  <div class="scroll-xy">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light" style="position:sticky;top:0;z-index:2;">
+        <tr>
+          <th class="ps-3">Order</th>
+          <th>Customer</th>
+          <th>Items</th>
+          <th>Amount</th>
+          <th>Payment</th>
+          <th style="min-width:240px;">Driver Assign</th>
+          <th>Status</th>
+          <th style="min-width:190px;">Update</th>
+          <th class="pe-3"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for order in orders %}
+        {% set payment  = payments_map.get(order.id|string) %}
+        {% set customer = customers_map.get(order.user_id|string, {}) %}
+        <tr>
+
+          <!-- Order ID + date -->
+          <td class="ps-3">
+            <div class="font-monospace small text-muted fw-semibold">{{ order.id|string|upper|truncate(8,True,'') }}</div>
+            <div class="text-muted" style="font-size:0.68rem;">{{ order.created_at.strftime('%d %b %y') if order.created_at else '' }}</div>
+          </td>
+
+          <!-- Customer -->
+          <td>
+            <div class="cust-name">{{ customer.get('name') or 'Unknown' }}</div>
+            {% if customer.get('phone') %}
+            <div class="cust-phone"><i class="bi bi-telephone me-1"></i>{{ customer['phone'] }}</div>
+            {% endif %}
+          </td>
+
+          <!-- Items inline -->
+          <td>
+            <div class="items-inline">
+              {% for item in order.items %}
+              <span class="item-chip">
+                <span class="item-qty">{{ item.quantity }}×</span>
+                {{ item.name or 'Item' }}
+              </span>
+              {% else %}
+              <span class="text-muted small">—</span>
+              {% endfor %}
+            </div>
+          </td>
+
+          <!-- Amount -->
+          <td class="fw-bold" style="color:#FF8000;">
+            {% if payment and payment.amount %}
+              GHS {{ "%.2f"|format(payment.amount|float) }}
+            {% else %}
+              GHS {{ "%.2f"|format(order.total_amount|float if order.total_amount else 0) }}
+            {% endif %}
+          </td>
+
+          <!-- Payment status -->
+          <td>
+            {% if payment %}
+              {% if payment.status == 'success' %}
+              <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle small">
+                <i class="bi bi-check2"></i> Paid
+              </span>
+              {% elif payment.status == 'pending' %}
+              <span class="badge rounded-pill bg-warning-subtle text-warning border border-warning-subtle small">
+                <i class="bi bi-clock"></i> Pending
+              </span>
+              {% else %}
+              <span class="badge rounded-pill bg-danger-subtle text-danger small">{{ payment.status }}</span>
+              {% endif %}
+            {% else %}
+            <span class="badge rounded-pill bg-secondary-subtle text-secondary small">No payment</span>
+            {% endif %}
+          </td>
+
+          <!-- Driver Assignment -->
+          <td>
+            {% if order.status in ['payment_confirmed','preparing','ready_for_pickup','assigned_to_driver'] %}
+              {% if order.status == 'assigned_to_driver' and order.driver_assigned_at %}
+              <div class="mb-1 d-flex align-items-center gap-1">
+                <span class="badge bg-warning text-dark" style="font-size:0.68rem;">
+                  {{ drivers_map.get(order.driver_user_id|string,'Driver') }}
+                </span>
+                <span class="pickup-timer badge bg-secondary small" id="timer-{{ order.id }}"
+                      data-assigned-at="{{ order.driver_assigned_at.isoformat() }}">⏱ …</span>
+              </div>
+              {% endif %}
+              <form action="{{ url_for('shopper.assign_driver', order_id=order.id) }}" method="POST" class="d-flex gap-1">
+                <select name="driver_id" class="form-select form-select-sm" style="font-size:0.76rem;">
+                  {% if order.driver_user_id %}
+                  <option value="{{ order.driver_user_id }}" selected>
+                    {{ drivers_map.get(order.driver_user_id|string,'Assigned') }}
+                  </option>
+                  {% else %}
+                  <option value="" disabled selected>Select driver</option>
+                  {% endif %}
+                  {% if eligible_drivers %}
+                  <optgroup label="● Nearby & Online">
+                    {% for d in eligible_drivers %}
+                    <option value="{{ d.id }}">{{ d.name }} · {{ d.vehicle_type|title }} · {{ "%.1f"|format(d.distance) }}km</option>
+                    {% endfor %}
+                  </optgroup>
+                  {% endif %}
+                  {% if all_drivers %}
+                  <optgroup label="All Drivers">
+                    {% for d in all_drivers %}
+                    <option value="{{ d.id }}">
+                      {{ '🟢 Online' if d.is_online else '⚫ Offline' }} · {{ d.name }} · {{ d.status|title }}
+                    </option>
+                    {% endfor %}
+                  </optgroup>
+                  {% endif %}
+                </select>
+                <button type="submit" class="btn btn-sm btn-orange" style="white-space:nowrap;">Assign</button>
+              </form>
+            {% else %}
+              {% if order.driver_user_id %}
+              <span class="badge bg-info-subtle text-info border border-info-subtle" style="font-size:0.72rem;">
+                {{ drivers_map.get(order.driver_user_id|string,'Driver') }}
+              </span>
+              {% else %}
+              <span class="text-muted small">Not ready</span>
+              {% endif %}
+            {% endif %}
+          </td>
+
+          <!-- Status badge -->
+          <td>
+            {% set s = order.status|replace('_','_') %}
+            {% if s == 'delivered' %}
+            <span class="badge badge-s-delivered px-3 py-1">Delivered</span>
+            {% elif s == 'preparing' %}
+            <span class="badge badge-s-preparing px-3 py-1">Preparing</span>
+            {% elif s == 'cancelled' %}
+            <span class="badge badge-s-cancelled px-3 py-1">Cancelled</span>
+            {% elif s == 'pending' %}
+            <span class="badge badge-s-pending px-3 py-1">Pending</span>
+            {% elif s == 'ready_for_pickup' %}
+            <span class="badge badge-s-ready_for_pickup px-3 py-1">Ready</span>
+            {% else %}
+            <span class="badge badge-s-default px-3 py-1">{{ s|replace('_',' ')|title }}</span>
+            {% endif %}
+          </td>
+
+          <!-- Update status -->
+          <td>
+            <form action="{{ url_for('shopper.update_order_status', id=order.id) }}" method="POST" class="d-flex gap-1">
+              <select name="status" class="form-select form-select-sm" style="font-size:0.74rem;">
+                {% for sv, sl in [
+                  ('pending',            'Pending'),
+                  ('payment_confirmed',  'Payment Confirmed'),
+                  ('preparing',          'Preparing'),
+                  ('ready_for_pickup',   'Ready for Pickup'),
+                  ('assigned_to_driver', 'Assigned to Driver'),
+                  ('delivered',          'Delivered'),
+                  ('cancelled',          'Cancelled'),
+                ] %}
+                <option value="{{ sv }}" {% if order.status == sv %}selected{% endif %}>{{ sl }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="btn btn-sm btn-orange">✓</button>
+            </form>
+          </td>
+          <!-- Delete order -->
+          <td class="pe-3">
+            <form action="{{ url_for('shopper.delete_order', order_id=order.id) }}" method="POST" class="d-inline"
+                  onsubmit="return confirm('Delete this order? This cannot be undone.')">
+              <button type="submit" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9" class="text-center py-5 text-muted">
+            <i class="bi bi-inbox fs-2 d-block mb-2"></i>No orders yet for this store.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Add Product Modal ─────────────────────────────────────────────── -->
+<div class="modal fade" id="addProductModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow rounded-4">
+      <div class="modal-header pt-4 px-4" style="border-bottom:2px solid #FF8000;">
+        <h6 class="modal-title fw-bold">Add New Product</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form action="{{ url_for('shopper.add_product', id=store.id) }}" method="POST">
+        <div class="modal-body px-4">
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-uppercase text-muted">Product Name *</label>
+            <input type="text" name="name" class="form-control" placeholder="e.g. Jollof Rice" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-uppercase text-muted">Description</label>
+            <textarea name="description" class="form-control" rows="2" placeholder="Brief description…"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-uppercase text-muted">Price (GHS) *</label>
+            <div class="input-group">
+              <span class="input-group-text text-muted small">GHS</span>
+              <input type="number" step="0.01" name="price" class="form-control" placeholder="0.00" required>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-uppercase text-muted">Product Image</label>
+            <div class="input-group mb-2">
+              <input type="file" class="form-control form-control-sm productImageFile" accept="image/*" data-bucket="products">
+              <button class="btn btn-sm btn-orange uploadBtn" type="button">Upload</button>
+            </div>
+            <input type="text" name="image_url" class="form-control form-control-sm productImageUrl" placeholder="Image path (filled after upload)">
+            <div class="uploadStatus small mt-1"></div>
+            <div class="mt-2 current-preview text-center"></div>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pb-4 px-4">
+          <button type="button" class="btn btn-light btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-orange px-4">Add Product</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE_URL = "{{ API_BASE_URL }}";
+const BACKEND_JWT  = "{{ BACKEND_TOKEN }}";
+
+// Pickup timeout countdown
+const PICKUP_WINDOW_MS = 5 * 60 * 1000;
+function updatePickupTimers() {
+  document.querySelectorAll('.pickup-timer[data-assigned-at]').forEach(el => {
+    const assignedAt = new Date(el.dataset.assignedAt);
+    const remaining  = PICKUP_WINDOW_MS - (Date.now() - assignedAt.getTime());
+    if (remaining <= 0) {
+      el.className = 'pickup-timer badge bg-danger small';
+      el.textContent = '⚠️ TIMED OUT';
+      const row = el.closest('tr');
+      if (row) row.classList.add('table-danger');
+    } else {
+      const mins = Math.floor(remaining / 60000);
+      const secs = Math.floor((remaining % 60000) / 1000);
+      el.textContent = `⏱ ${mins}:${secs < 10 ? '0' : ''}${secs}`;
+      el.className = `pickup-timer badge ${remaining < 60000 ? 'bg-warning text-dark' : 'bg-secondary'} small`;
+    }
+  });
+}
+if (document.querySelectorAll('.pickup-timer').length > 0) {
+  updatePickupTimers();
+  setInterval(updatePickupTimers, 1000);
+}
+
+// Image upload handler
+document.addEventListener('click', async (e) => {
+  if (!e.target.classList.contains('uploadBtn')) return;
+  const btn       = e.target;
+  const container = btn.closest('.mb-3');
+  if (!container) return;
+  const fileInput = container.querySelector('.productImageFile, .imageUploadFile');
+  const status    = container.querySelector('.uploadStatus');
+  const urlInput  = container.querySelector('.productImageUrl, .imageUrlInput');
+  const preview   = container.querySelector('.current-preview, .image-preview');
+  const bucket    = fileInput?.dataset.bucket || 'products';
+  if (!fileInput?.files?.length) {
+    if (status) status.innerHTML = '<span class="text-danger">Select a file first.</span>';
+    return;
+  }
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  formData.append('bucket', bucket);
+  try {
+    if (status) status.textContent = 'Uploading…';
+    btn.disabled = true;
+    const res    = await fetch(`${API_BASE_URL}/api/v1/media/upload`, {
+      method: 'POST',
+      headers: BACKEND_JWT ? { Authorization: `Bearer ${BACKEND_JWT}` } : {},
+      body: formData,
+    });
+    const result = await res.json();
+    if (res.ok) {
+      if (urlInput) urlInput.value = result.path;
+      if (status) status.innerHTML = '<span class="text-success"><i class="bi bi-check-circle"></i> Uploaded!</span>';
+      if (preview) {
+        let img = preview.querySelector('img');
+        if (!img) { img = document.createElement('img'); img.className = 'rounded shadow-sm'; img.style.maxHeight = '80px'; preview.appendChild(img); }
+        img.src = result.url;
+      }
+    } else {
+      if (status) status.innerHTML = `<span class="text-danger">Upload failed: ${result.error || 'Server error'}</span>`;
+    }
+  } catch (err) {
+    if (status) status.innerHTML = `<span class="text-danger">Network error: ${err.message}</span>`;
+  } finally { btn.disabled = false; }
+});
+
+// ── Auto-refresh (pauses while a form field is focused) ──────────────
+(function () {
+  const SECONDS = 30;
+  let paused = false;
+  document.addEventListener('focusin',  e => { if (e.target.matches('input,textarea,select')) paused = true; });
+  document.addEventListener('focusout', e => { if (e.target.matches('input,textarea,select')) paused = false; });
+
+  const badge = document.createElement('small');
+  badge.style.cssText = 'position:fixed;bottom:12px;right:16px;background:#111827;color:#9ca3af;padding:4px 10px;border-radius:20px;font-size:0.72rem;z-index:9999;';
+  document.body.appendChild(badge);
+
+  let t = SECONDS;
+  setInterval(() => {
+    if (paused) { t = SECONDS; badge.textContent = '↻ paused'; return; }
+    t--;
+    badge.textContent = `↻ ${t}s`;
+    if (t <= 0) window.location.reload();
+  }, 1000);
+})();
+</script>
+{% endblock %}

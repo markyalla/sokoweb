@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SokoApp Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --soko-primary: #FF8000;
+            --sidebar-bg: #111827;
+            --sidebar-hover: #1f2937;
+        }
+        body { background-color: #f9fafb; font-family: system-ui, -apple-system, sans-serif; }
+        .sidebar { width: 260px; min-height: 100vh; background-color: var(--sidebar-bg); z-index: 1000; transition: margin-left 0.3s ease-in-out; }
+        .sidebar .nav-link { color: #9ca3af; padding: 0.75rem 1.5rem; border-radius: 0.5rem; margin: 0.2rem 0.75rem; display: flex; align-items: center; gap: 0.75rem; }
+        .sidebar .nav-link:hover { background-color: var(--sidebar-hover); color: #fff; }
+        .sidebar .nav-link.active { background-color: var(--soko-primary); color: #fff; }
+        .content-wrapper { flex-grow: 1; min-width: 0; }
+        @media (max-width: 991.98px) {
+            .sidebar { position: fixed; margin-left: -260px; }
+            .sidebar.show { margin-left: 0; }
+            .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999; }
+            .sidebar-overlay.show { display: block; }
+        }
+    </style>
+</head>
+<body>
+    <div class="d-flex">
+        <!-- Sidebar -->
+        {% if current_user.is_authenticated %}
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        <aside class="sidebar flex-shrink-0" id="sidebar">
+            <div class="p-4 mb-2">
+                <a href="{{ url_for('dashboard.index') }}" class="text-decoration-none d-flex align-items-center">
+                    <span class="fs-4 fw-bold" style="color: var(--soko-primary);">SokoWeb</span>
+                </a>
+            </div>
+            <nav class="nav nav-pills flex-column">
+                <a href="{{ url_for('dashboard.index') }}" class="nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
+                    <i class="bi bi-grid"></i> Dashboard
+                </a>
+                
+                <div class="px-4 mt-4 mb-2 small text-uppercase text-muted fw-semibold" style="letter-spacing: 0.05rem;">Management</div>
+                <a href="{{ url_for('account.user_list') }}" class="nav-link {% if 'account' in request.endpoint %}active{% endif %}">
+                    <i class="bi bi-people"></i> Users & KYC
+                </a>
+                <a href="{{ url_for('shopper.index') }}" class="nav-link {% if 'shopper' in request.endpoint %}active{% endif %}">
+                    <i class="bi bi-shop"></i> Stores & Products
+                </a>
+                <a href="{{ url_for('delivery.orders_list') }}" class="nav-link {% if 'delivery' in request.endpoint %}active{% endif %}">
+                    <i class="bi bi-truck"></i> Deliveries
+                </a>
+                <a href="{{ url_for('dashboard.active_deliveries') }}" class="nav-link {% if request.endpoint == 'dashboard.active_deliveries' %}active{% endif %}">
+                    <i class="bi bi-broadcast"></i> Active Deliveries
+                </a>
+                <a href="{{ url_for('sokoindex.applications_list') }}" class="nav-link {% if request.endpoint == 'sokoindex.applications_list' %}active{% endif %}">
+                    <i class="bi bi-hammer"></i> SokoIndex Applications
+                </a>
+                <a href="{{ url_for('sokoindex.portfolio_review_list') }}" class="nav-link {% if request.endpoint == 'sokoindex.portfolio_review_list' %}active{% endif %}">
+                    <i class="bi bi-images"></i> Portfolio Review
+                </a>
+                <a href="{{ url_for('sokoindex.bookings_list') }}" class="nav-link {% if request.endpoint == 'sokoindex.bookings_list' %}active{% endif %}">
+                    <i class="bi bi-calendar-check"></i> Bookings
+                </a>
+                <a href="{{ url_for('sokoindex.complaints_list') }}" class="nav-link {% if request.endpoint == 'sokoindex.complaints_list' %}active{% endif %}">
+                    <i class="bi bi-exclamation-triangle"></i> Complaints
+                </a>
+
+                <div class="px-4 mt-4 mb-2 small text-uppercase text-muted fw-semibold" style="letter-spacing: 0.05rem;">Finance</div>
+                <a href="{{ url_for('finance.track_expenses') }}" class="nav-link {% if 'finance' in request.endpoint %}active{% endif %}">
+                    <i class="bi bi-bar-chart-line"></i> Track Expenses
+                </a>
+                <a href="#" class="nav-link"><i class="bi bi-wallet2"></i> Bank</a>
+                <a href="{{ url_for('susu.index') }}" class="nav-link {% if 'susu' in request.endpoint %}active{% endif %}"><i class="bi bi-piggy-bank"></i> Susu</a>
+                <a href="#" class="nav-link"><i class="bi bi-cash-stack"></i> Loans</a>
+
+                <div class="mt-auto p-3 pt-5">
+                    <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-2">
+                        <i class="bi bi-box-arrow-left"></i> Logout
+                    </a>
+                </div>
+            </nav>
+        </aside>
+        {% endif %}
+
+        <main class="content-wrapper d-flex flex-column">
+            <nav class="navbar navbar-expand navbar-light bg-white border-bottom sticky-top px-3 py-2">
+                <div class="container-fluid px-0">
+                    {% if current_user.is_authenticated %}
+                    <button class="btn btn-link p-0 border-0 text-dark d-lg-none me-3" id="mobileToggle">
+                        <i class="bi bi-list fs-3"></i>
+                    </button>
+                    {% endif %}
+                    
+                    <div class="ms-auto d-flex align-items-center">
+                        {% if g.user %}
+                        <div class="dropdown">
+                            <button class="btn btn-link text-decoration-none text-dark dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown">
+                                <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 32px; height: 32px; font-size: 0.8rem;">
+                                    {{ g.user.full_name[0] }}
+                                </div>
+                                <span class="d-none d-sm-inline small fw-semibold">{{ g.user.full_name }}</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2">
+                                <li><a class="dropdown-item py-2" href="{{ url_for('account.profile') }}"><i class="bi bi-person me-2"></i> Profile</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item py-2 text-danger" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-left me-2"></i> Logout</a></li>
+                            </ul>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </nav>
+
+            <div class="p-3 p-lg-4">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category if category != 'message' else 'info' }} alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const toggle = document.getElementById('mobileToggle');
+
+        if (toggle) {
+            toggle.addEventListener('click', () => {
+                sidebar.classList.toggle('show');
+                overlay.classList.toggle('show');
+            });
+        }
+
+        if (overlay) {
+            overlay.addEventListener('click', () => {
+                sidebar.classList.remove('show');
+                overlay.classList.remove('show');
+            });
+        }
+    </script>
+
+    {% if current_user.is_authenticated %}
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;" id="driverToastContainer"></div>
+    <script>
+        // Polls for drivers going online and toasts the admin — there's no
+        // websocket/push channel in this app, so polling is the pragmatic
+        // way to surface it without a full page reload. Only announces
+        // drivers newly online since the LAST poll (not on page load).
+        (function () {
+            let knownOnline = null; // null = first poll hasn't landed yet
+
+            function showToast(message) {
+                const container = document.getElementById('driverToastContainer');
+                const el = document.createElement('div');
+                el.className = 'toast align-items-center text-white bg-success border-0';
+                el.setAttribute('role', 'alert');
+                el.innerHTML = `
+                    <div class="d-flex">
+                        <div class="toast-body">${message}</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>`;
+                container.appendChild(el);
+                const toast = new bootstrap.Toast(el, { delay: 6000 });
+                toast.show();
+                el.addEventListener('hidden.bs.toast', () => el.remove());
+            }
+
+            function poll() {
+                fetch("{{ url_for('dashboard.api_drivers_online') }}")
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => {
+                        if (!data) return;
+                        const nowOnline = new Set(data.drivers.map(d => d.id));
+
+                        if (knownOnline !== null) {
+                            data.drivers.forEach(d => {
+                                if (!knownOnline.has(d.id)) {
+                                    showToast(`🟢 <strong>${d.name}</strong> just went online`);
+                                }
+                            });
+                        }
+                        knownOnline = nowOnline;
+                    })
+                    .catch(() => {});
+            }
+
+            poll();
+            setInterval(poll, 15000);
+        })();
+    </script>
+    {% endif %}
+</body>
+</html>

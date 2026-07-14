@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex align-items-center gap-3 mb-4">
+    <h5 class="fw-bold mb-0">Complaints</h5>
+    <span class="badge bg-secondary">{{ complaints|length }}</span>
+</div>
+
+<div class="bg-white rounded-3 shadow-sm overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-3">Against Artisan</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th>Filed</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in complaints %}
+                <tr>
+                    <td class="ps-3 small fw-semibold">{{ c.artisan.display_name if c.artisan else '—' }}</td>
+                    <td class="small">{{ c.category or '—' }}</td>
+                    <td class="small">{{ c.description|truncate(80) }}</td>
+                    <td>
+                        {% if c.status == 'resolved' %}
+                        <span class="badge bg-success-subtle text-success border">Resolved</span>
+                        {% elif c.status == 'dismissed' %}
+                        <span class="badge bg-secondary-subtle text-secondary border">Dismissed</span>
+                        {% elif c.status == 'in_review' %}
+                        <span class="badge bg-info-subtle text-info border">In Review</span>
+                        {% else %}
+                        <span class="badge bg-warning-subtle text-warning border">Open</span>
+                        {% endif %}
+                    </td>
+                    <td class="small text-muted">{{ c.created_at.strftime('%d %b %Y %H:%M') if c.created_at else '—' }}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-orange" data-bs-toggle="modal" data-bs-target="#complaintModal"
+                            data-complaint-id="{{ c.id }}"
+                            data-artisan-id="{{ c.against_artisan_id }}"
+                            data-artisan-name="{{ c.artisan.display_name if c.artisan else '—' }}"
+                            data-description="{{ c.description }}"
+                            data-status="{{ c.status }}">
+                            Review
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-muted small">No complaints filed yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="complaintModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">Review Complaint</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small mb-1"><strong>Artisan:</strong> <span id="modalArtisanName"></span></p>
+                <p class="small mb-3" id="modalDescription"></p>
+
+                <form id="resolveForm" method="post">
+                    <div class="mb-2">
+                        <label class="form-label small">Resolution</label>
+                        <select name="status" class="form-select form-select-sm">
+                            <option value="resolved">Resolved</option>
+                            <option value="dismissed">Dismissed</option>
+                            <option value="in_review">In Review</option>
+                        </select>
+                    </div>
+                    <div class="mb-2 form-check">
+                        <input type="checkbox" class="form-check-input" name="artisan_at_fault" value="true" id="artisanAtFault">
+                        <label class="form-check-label small" for="artisanAtFault">Artisan at fault</label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small">Resolution notes</label>
+                        <textarea name="resolution_notes" class="form-control form-control-sm" rows="3"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-primary w-100">Save Resolution</button>
+                </form>
+
+                <hr>
+                <form id="suspendForm" method="post">
+                    <div class="mb-2">
+                        <label class="form-label small">Suspend this artisan</label>
+                        <textarea name="reason" class="form-control form-control-sm" rows="2" placeholder="Suspension reason"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-outline-danger w-100">Suspend Artisan</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('complaintModal').addEventListener('show.bs.modal', function (event) {
+    const btn = event.relatedTarget;
+    const complaintId = btn.getAttribute('data-complaint-id');
+    const artisanId = btn.getAttribute('data-artisan-id');
+    document.getElementById('modalArtisanName').textContent = btn.getAttribute('data-artisan-name');
+    document.getElementById('modalDescription').textContent = btn.getAttribute('data-description');
+    document.getElementById('resolveForm').action = `/sokoindex/complaints/${complaintId}/resolve`;
+    document.getElementById('suspendForm').action = `/sokoindex/artisans/${artisanId}/suspend`;
+});
+</script>
+{% endblock %}

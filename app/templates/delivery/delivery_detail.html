@@ -1,0 +1,383 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .btn-orange { background:#FF8000!important;border-color:#FF8000!important;color:#fff!important; }
+  .btn-orange:hover { background:#e07000!important;border-color:#e07000!important; }
+  .btn-outline-orange { border:1px solid #FF8000!important;color:#FF8000!important;background:transparent!important;border-radius:6px; }
+  .btn-outline-orange:hover { background:#FF8000!important;color:#fff!important; }
+  .sec-label { font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;font-weight:800;color:#FF8000;border-left:3px solid #FF8000;padding-left:8px;margin-bottom:12px; }
+</style>
+<div class="d-flex align-items-center gap-3 mb-4">
+    <a href="{{ url_for('delivery.orders_list') }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+        <h5 class="fw-bold mb-0">Delivery <span class="font-monospace">{{ order.id|string|upper|truncate(8,True,'') }}</span></h5>
+        <p class="text-muted small mb-0">{{ order.created_at.strftime('%A, %d %B %Y %H:%M') if order.created_at else '' }}</p>
+    </div>
+    <div class="ms-auto d-flex gap-2 flex-wrap">
+        <span class="badge fs-6 bg-{{ status_classes.get(current_status,'secondary') }}-subtle
+                     text-{{ status_classes.get(current_status,'secondary') }} border
+                     border-{{ status_classes.get(current_status,'secondary') }}-subtle">
+            {{ current_status|replace('_',' ')|title }}
+        </span>
+        {% if order.payment_status == 'success' %}
+        <span class="badge fs-6 bg-success-subtle text-success border border-success-subtle">
+            <i class="bi bi-check2-circle me-1"></i>Paid
+        </span>
+        {% else %}
+        <span class="badge fs-6 bg-warning-subtle text-warning border border-warning-subtle">
+            <i class="bi bi-clock me-1"></i>Unpaid
+        </span>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Status timeline -->
+{% set flow = ['pending','assigned','accepted','picked_up','in_transit','delivered'] %}
+{% set flow_labels = {
+    'pending':   'Pending',
+    'assigned':  'Driver Assigned',
+    'accepted':  'Driver Accepted',
+    'picked_up': 'Picked Up',
+    'in_transit':'In Transit',
+    'delivered': 'Delivered'
+} %}
+{% set cur_idx = flow.index(current_status) if current_status in flow else -1 %}
+<div class="bg-white rounded-3 shadow-sm p-3 mb-4">
+    <div class="d-flex align-items-center justify-content-between">
+        {% for step in flow %}
+        {% set idx = loop.index0 %}
+        {% set done = idx <= cur_idx %}
+        {% set active = idx == cur_idx %}
+        <div class="d-flex flex-column align-items-center" style="flex:1;">
+            <div class="rounded-circle d-flex align-items-center justify-content-center mb-1"
+                 style="width:28px;height:28px;
+                        background:{% if done %}{% if active %}#FF8000{% else %}#FF8000{% endif %}{% else %}#e5e7eb{% endif %};
+                        color:#fff;font-size:12px;">
+                {% if done and not active %}<i class="bi bi-check-lg"></i>
+                {% elif active %}<i class="bi bi-record-circle"></i>
+                {% else %}<i class="bi bi-circle"></i>{% endif %}
+            </div>
+            <div class="text-center" style="font-size:10px;color:{% if done %}#111827{% else %}#9ca3af{% endif %};font-weight:{% if active %}700{% else %}400{% endif %};">
+                {{ flow_labels[step] }}
+            </div>
+        </div>
+        {% if not loop.last %}
+        <div style="flex:1;height:2px;background:{% if idx < cur_idx %}#FF8000{% else %}#e5e7eb{% endif %};margin-bottom:18px;"></div>
+        {% endif %}
+        {% endfor %}
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Left column -->
+    <div class="col-lg-8">
+
+        <!-- Route -->
+        <div class="bg-white rounded-3 shadow-sm p-4 mb-4">
+            <h6 class="fw-bold text-muted mb-3 small text-uppercase">Route</h6>
+            <div class="d-flex align-items-start gap-3 mb-3">
+                <div style="width:28px;height:28px;border-radius:50%;background:#FF800022;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <i class="bi bi-circle-fill text-success" style="font-size:8px;"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Pickup</div>
+                    <div class="fw-semibold">{{ order.pickup_address or '—' }}</div>
+                    {% if order.pickup_lat %}
+                    <div class="text-muted" style="font-size:11px;">{{ order.pickup_lat }}, {{ order.pickup_lng }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="d-flex align-items-start gap-3">
+                <div style="width:28px;height:28px;border-radius:50%;background:#FF800022;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                    <i class="bi bi-geo-alt-fill text-warning" style="font-size:11px;"></i>
+                </div>
+                <div>
+                    <div class="text-muted small">Dropoff</div>
+                    <div class="fw-semibold">{{ order.dropoff_address or '—' }}</div>
+                    {% if order.dropoff_lat %}
+                    <div class="text-muted" style="font-size:11px;">{{ order.dropoff_lat }}, {{ order.dropoff_lng }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Parcel -->
+        <div class="bg-white rounded-3 shadow-sm p-4 mb-4">
+            <h6 class="fw-bold text-muted mb-3 small text-uppercase">Parcel</h6>
+            <p class="mb-2">{{ order.description or '—' }}</p>
+            <div class="row g-3">
+                <div class="col-sm-4">
+                    <div class="text-muted small">Vehicle</div>
+                    <div class="fw-semibold">
+                        {% if order.vehicle_type == 'bicycle' %}<i class="bi bi-bicycle me-1"></i>
+                        {% elif order.vehicle_type in ['motorbike','motorcycle'] %}<i class="bi bi-scooter me-1"></i>
+                        {% elif order.vehicle_type == 'car' %}<i class="bi bi-car-front me-1"></i>
+                        {% elif order.vehicle_type == 'van' %}<i class="bi bi-bus-front me-1"></i>
+                        {% elif order.vehicle_type == 'truck' %}<i class="bi bi-truck me-1"></i>
+                        {% endif %}
+                        {{ (order.vehicle_type or 'N/A')|title }}
+                    </div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="text-muted small">Distance</div>
+                    <div class="fw-semibold">{{ "%.1f km"|format(order.distance_km) if order.distance_km else '—' }}</div>
+                </div>
+                <div class="col-sm-4">
+                    <div class="text-muted small">Package size</div>
+                    <div class="fw-semibold">{{ order.package_size or '—' }}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Assignments -->
+        <div class="bg-white rounded-3 shadow-sm overflow-hidden">
+            <div class="p-3 border-bottom d-flex align-items-center justify-content-between">
+                <span class="fw-bold">Assignments ({{ assignments|length }})</span>
+            </div>
+            {% if assignments %}
+            <div class="table-responsive" style="max-height:320px;overflow-y:auto;">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3">Driver</th>
+                            <th>Status</th>
+                            <th>Fee</th>
+                            <th>Earnings</th>
+                            <th>Accepted</th>
+                            <th>Delivered</th>
+                            <th>Admin Override</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in assignments %}
+                        <tr>
+                            <td class="ps-3 small">
+                                {% if a.driver_id %}
+                                    {% set dname = drivers_map.get(a.driver_id|string) %}
+                                    {% if dname %}
+                                        <span class="fw-semibold">{{ dname }}</span>
+                                    {% else %}
+                                        <span class="font-monospace text-muted">{{ a.driver_id|string|truncate(8,True,'') }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted fst-italic">Unassigned</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-{{ status_classes.get(a.status,'secondary') }}-subtle
+                                             text-{{ status_classes.get(a.status,'secondary') }} border
+                                             border-{{ status_classes.get(a.status,'secondary') }}-subtle">
+                                    {{ (a.status or '—')|replace('_',' ')|title }}
+                                </span>
+                                {% if a.status == 'assigned' %}
+                                <div class="text-muted" style="font-size:10px;">Awaiting driver accept</div>
+                                {% endif %}
+                            </td>
+                            <td>GH₵ {{ "%.2f"|format(a.delivery_fee or 0) }}</td>
+                            <td>GH₵ {{ "%.2f"|format(a.driver_earnings or 0) }}</td>
+                            <td class="small text-muted">{{ a.accepted_at.strftime('%d %b %H:%M') if a.accepted_at else '—' }}</td>
+                            <td class="small text-muted">{{ a.delivered_at.strftime('%d %b %H:%M') if a.delivered_at else '—' }}</td>
+                            <td>
+                                <div class="d-flex gap-1 flex-wrap">
+                                <form method="post"
+                                      action="{{ url_for('delivery.update_assignment_status', assignment_id=a.id) }}"
+                                      class="d-inline-flex gap-1">
+                                    <select name="status" class="form-select form-select-sm" style="width:130px;">
+                                        {% for s in ['pending','broadcast','assigned','accepted','picked_up','in_transit','arrived_at_customer','delivered','failed','cancelled'] %}
+                                        <option value="{{ s }}" {% if a.status == s %}selected{% endif %}>
+                                            {{ s|replace('_',' ')|title }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="btn btn-sm btn-orange">Save</button>
+                                </form>
+                                <form method="post"
+                                      action="{{ url_for('delivery.delete_assignment', assignment_id=a.id) }}"
+                                      class="d-inline"
+                                      onsubmit="return confirm('Delete this assignment? This cannot be undone.')">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted small">No assignments yet.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Right column -->
+    <div class="col-lg-4">
+
+        <!-- Pricing -->
+        <div class="bg-white rounded-3 shadow-sm p-4 mb-4">
+            <h6 class="fw-bold text-muted mb-3 small text-uppercase">Payment</h6>
+            <div class="d-flex justify-content-between mb-2">
+                <span class="text-muted small">Total</span>
+                <span class="fw-bold fs-5" style="color:#FF8000;">GH₵ {{ "%.2f"|format(order.total_amount or 0) }}</span>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+                <span class="text-muted small">Paid by</span>
+                <span class="badge bg-secondary">{{ (order.payer_type or 'sender')|title }}</span>
+            </div>
+            <div class="d-flex justify-content-between mb-2">
+                <span class="text-muted small">Payment status</span>
+                {% if order.payment_status == 'success' %}
+                <span class="text-success fw-semibold small"><i class="bi bi-check-circle me-1"></i>Paid</span>
+                {% else %}
+                <span class="text-warning fw-semibold small"><i class="bi bi-hourglass me-1"></i>Pending</span>
+                {% endif %}
+            </div>
+            {% if order.paystack_ref %}
+            <div class="border-top pt-2 mt-2">
+                <div class="text-muted small mb-1">Paystack ref</div>
+                <div class="font-monospace small">{{ order.paystack_ref }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Receiver -->
+        <div class="bg-white rounded-3 shadow-sm p-4 mb-4">
+            <h6 class="fw-bold text-muted mb-3 small text-uppercase">Receiver</h6>
+            <div class="mb-2 d-flex justify-content-between">
+                <span class="text-muted small">Name</span>
+                <span class="fw-semibold small">{{ order.receiver_name or '—' }}</span>
+            </div>
+            <div class="mb-2 d-flex justify-content-between">
+                <span class="text-muted small">Phone</span>
+                <span class="fw-semibold small">{{ order.receiver_phone or '—' }}</span>
+            </div>
+            {% if order.receiver_location_notes %}
+            <div class="border-top pt-2 mt-2">
+                <div class="text-muted small mb-1">Notes</div>
+                <div class="small">{{ order.receiver_location_notes }}</div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sender -->
+        {% if order.sender_name %}
+        <div class="bg-white rounded-3 shadow-sm p-4 mb-4">
+            <h6 class="fw-bold text-muted mb-3 small text-uppercase">Sender</h6>
+            <div class="mb-2 d-flex justify-content-between">
+                <span class="text-muted small">Name</span>
+                <span class="fw-semibold small">{{ order.sender_name }}</span>
+            </div>
+            {% if order.sender_phone %}
+            <div class="d-flex justify-content-between">
+                <span class="text-muted small">Phone</span>
+                <span class="fw-semibold small">{{ order.sender_phone }}</span>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Assign Driver -->
+        <div class="bg-white rounded-3 shadow-sm p-4 mb-4">
+            <h6 class="fw-bold text-muted mb-3 small text-uppercase">
+                <i class="bi bi-person-badge me-1"></i>Assign Driver
+            </h6>
+
+            {% if current_status == 'assigned' %}
+            <div class="alert alert-info py-2 px-3 mb-3 small">
+                <i class="bi bi-info-circle me-1"></i>
+                A driver is assigned. Waiting for them to <strong>accept</strong> on their dashboard.
+            </div>
+            {% endif %}
+
+            {% if order.vehicle_type %}
+            <div class="alert alert-warning py-2 px-3 mb-3 small">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                Customer requested a <strong>{{ order.vehicle_type|title }}</strong>.
+            </div>
+            {% endif %}
+
+            {% if driver_rows %}
+            <form method="post" action="{{ url_for('delivery.assign_driver_manual', order_id=order.id) }}">
+                <select name="driver_id" class="form-select form-select-sm mb-2" required>
+                    <option value="" disabled selected>— choose a driver —</option>
+                    {% set matched = [] %}
+                    {% set others  = [] %}
+                    {% for profile, user in driver_rows %}
+                        {% set vt = (profile.vehicle_type or '') %}
+                        {% set ot = (order.vehicle_type or '') %}
+                        {% set is_match = (vt == ot) or (ot == 'motorbike' and vt == 'motorcycle') or (ot == 'motorcycle' and vt == 'motorbike') %}
+                        {% if is_match %}{% set _ = matched.append((profile, user)) %}
+                        {% else %}{% set _ = others.append((profile, user)) %}{% endif %}
+                    {% endfor %}
+                    {% if matched %}
+                    <optgroup label="✓ Matching vehicle">
+                        {% for profile, user in matched %}
+                        <option value="{{ profile.user_id }}">
+                            {{ user.full_name }} · {{ (profile.vehicle_type or '?')|title }}
+                            {% if profile.is_online %} · 🟢 Online{% else %} · ⚫ Offline{% endif %}
+                            {% if profile.is_available %} · Available{% else %} · Busy{% endif %}
+                        </option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endif %}
+                    {% if others %}
+                    <optgroup label="Other drivers">
+                        {% for profile, user in others %}
+                        <option value="{{ profile.user_id }}">
+                            {{ user.full_name }} · {{ (profile.vehicle_type or '?')|title }}
+                            {% if profile.is_online %} · 🟢 Online{% else %} · ⚫ Offline{% endif %}
+                            {% if profile.is_available %} · Available{% else %} · Busy{% endif %}
+                        </option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endif %}
+                </select>
+                <button type="submit" class="btn btn-sm btn-orange w-100">
+                    <i class="bi bi-person-check me-1"></i>Assign Driver
+                </button>
+            </form>
+            <div class="border-top mt-3 pt-3">
+                <form method="post" action="{{ url_for('delivery.assign_nearest_driver', order_id=order.id) }}">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+                        <i class="bi bi-geo-alt me-1"></i>Auto-assign Nearest Driver
+                    </button>
+                </form>
+            </div>
+            {% else %}
+            <p class="text-muted small mb-2">No active drivers found.</p>
+            <form method="post" action="{{ url_for('delivery.assign_nearest_driver', order_id=order.id) }}">
+                <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+                    <i class="bi bi-geo-alt me-1"></i>Auto-assign Nearest Driver
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+// ── Auto-refresh (pauses while a form field is focused) ──────────────
+(function () {
+  const SECONDS = 30;
+  let paused = false;
+  document.addEventListener('focusin',  e => { if (e.target.matches('input,textarea,select')) paused = true; });
+  document.addEventListener('focusout', e => { if (e.target.matches('input,textarea,select')) paused = false; });
+
+  const badge = document.createElement('small');
+  badge.style.cssText = 'position:fixed;bottom:12px;right:16px;background:#111827;color:#9ca3af;padding:4px 10px;border-radius:20px;font-size:0.72rem;z-index:9999;';
+  document.body.appendChild(badge);
+
+  let t = SECONDS;
+  setInterval(() => {
+    if (paused) { t = SECONDS; badge.textContent = '↻ paused'; return; }
+    t--;
+    badge.textContent = `↻ ${t}s`;
+    if (t <= 0) window.location.reload();
+  }, 1000);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .page-hero { background:#FF8000;color:#fff;border-radius:16px;padding:20px 28px;margin-bottom:24px; }
+  .btn-orange { background:#FF8000!important;border-color:#FF8000!important;color:#fff!important; }
+  .btn-orange:hover { background:#e07000!important;border-color:#e07000!important; }
+  .btn-outline-orange { border:1px solid #FF8000!important;color:#FF8000!important;background:transparent!important;border-radius:6px; }
+  .btn-outline-orange:hover { background:#FF8000!important;color:#fff!important; }
+</style>
+<div class="page-hero">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+      <h5 class="fw-bold mb-1">Delivery Orders</h5>
+      <p class="mb-0" style="color:rgba(255,255,255,.85);font-size:.85rem;">All SokoDelivery parcel orders</p>
+    </div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    {% for label, value, icon, color in [
+        ('Total Orders', stats.total,     'box-seam',          '#FF8000'),
+        ('Active',       stats.active,    'truck',             '#FF8000'),
+        ('Delivered',    stats.delivered, 'check-circle',      '#6366f1'),
+        ('Unpaid',       stats.unpaid,    'exclamation-circle','#ef4444'),
+    ] %}
+    <div class="col-6 col-md-3">
+        <div class="bg-white rounded-3 p-3 shadow-sm d-flex align-items-center gap-3">
+            <div class="rounded-circle d-flex align-items-center justify-content-center"
+                 style="width:42px;height:42px;background:{{ color }}22;">
+                <i class="bi bi-{{ icon }}" style="color:{{ color }};font-size:1.1rem;"></i>
+            </div>
+            <div>
+                <div class="fw-bold fs-5">{{ value }}</div>
+                <div class="text-muted small">{{ label }}</div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Revenue card -->
+<div class="bg-white rounded-3 shadow-sm p-3 mb-4 d-flex align-items-center gap-3">
+    <div class="rounded-circle d-flex align-items-center justify-content-center"
+         style="width:48px;height:48px;background:#FF800022;">
+        <i class="bi bi-cash-stack" style="color:#FF8000;font-size:1.3rem;"></i>
+    </div>
+    <div>
+        <div class="text-muted small">Total Revenue (paid orders)</div>
+        <div class="fw-bold fs-4" style="color:#FF8000;">GH₵ {{ "%.2f"|format(stats.revenue) }}</div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="bg-white rounded-3 shadow-sm p-3 mb-3">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <input type="text" name="q" class="form-control form-control-sm"
+                   placeholder="Search name, phone, desc…" value="{{ search }}">
+        </div>
+        <div class="col-md-2">
+            <select name="status" class="form-select form-select-sm">
+                <option value="">All Statuses</option>
+                {% for s in ['pending','broadcast','assigned','accepted','picked_up','in_transit','arrived_at_customer','delivered','failed','cancelled'] %}
+                <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>
+                    {{ s|replace('_',' ')|title }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select name="payer_type" class="form-select form-select-sm">
+                <option value="">All Payers</option>
+                <option value="sender"   {% if payer_filter == 'sender'   %}selected{% endif %}>Sender Pays</option>
+                <option value="receiver" {% if payer_filter == 'receiver' %}selected{% endif %}>Receiver Pays</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select name="payment_status" class="form-select form-select-sm">
+                <option value="">Any Payment</option>
+                <option value="pending" {% if payment_filter == 'pending' %}selected{% endif %}>Unpaid</option>
+                <option value="success" {% if payment_filter == 'success' %}selected{% endif %}>Paid</option>
+            </select>
+        </div>
+        <div class="col-auto">
+            <button type="submit" class="btn btn-sm btn-orange">Filter</button>
+            <a href="{{ url_for('delivery.orders_list') }}" class="btn btn-sm btn-outline-secondary ms-1">Clear</a>
+        </div>
+    </form>
+</div>
+
+<!-- Table -->
+<div class="bg-white rounded-3 shadow-sm overflow-hidden">
+    {% if orders %}
+    <div class="table-responsive" style="max-height:560px;overflow-y:auto;">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-3">ID</th>
+                    <th>Receiver</th>
+                    <th>Route</th>
+                    <th>Vehicle</th>
+                    <th>Amount</th>
+                    <th>Payer</th>
+                    <th>Status</th>
+                    <th>Payment</th>
+                    <th>Date</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for o in orders %}
+                {% set ostatus = status_map.get(o.id|string, 'pending') %}
+                <tr>
+                    <td class="ps-3">
+                        <span class="font-monospace small text-muted">{{ o.id|string|upper|truncate(8,True,'') }}</span>
+                    </td>
+                    <td>
+                        <div class="fw-semibold small">{{ o.receiver_name or '—' }}</div>
+                        <div class="text-muted" style="font-size:11px;">{{ o.receiver_phone or '' }}</div>
+                    </td>
+                    <td style="max-width:180px;">
+                        <div class="small text-truncate" title="{{ o.pickup_address }}">
+                            <i class="bi bi-circle-fill text-success" style="font-size:7px;"></i>
+                            {{ o.pickup_address or '—' }}
+                        </div>
+                        <div class="small text-truncate text-muted" title="{{ o.dropoff_address }}">
+                            <i class="bi bi-geo-alt-fill text-warning" style="font-size:7px;"></i>
+                            {{ o.dropoff_address or '—' }}
+                        </div>
+                    </td>
+                    <td>
+                        <span class="badge bg-light text-dark border">
+                            {% if o.vehicle_type == 'bicycle' %}<i class="bi bi-bicycle me-1"></i>
+                            {% elif o.vehicle_type in ['motorbike','motorcycle'] %}<i class="bi bi-scooter me-1"></i>
+                            {% elif o.vehicle_type == 'car' %}<i class="bi bi-car-front me-1"></i>
+                            {% elif o.vehicle_type == 'van' %}<i class="bi bi-bus-front me-1"></i>
+                            {% elif o.vehicle_type == 'truck' %}<i class="bi bi-truck me-1"></i>
+                            {% endif %}
+                            {{ (o.vehicle_type or 'N/A')|title }}
+                        </span>
+                        {% if o.distance_km %}
+                        <div class="text-muted" style="font-size:11px;">{{ "%.1f"|format(o.distance_km) }} km</div>
+                        {% endif %}
+                    </td>
+                    <td class="fw-semibold">GH₵ {{ "%.2f"|format(o.total_amount or 0) }}</td>
+                    <td>
+                        <span class="badge {% if o.payer_type == 'receiver' %}bg-info{% else %}bg-secondary{% endif %}">
+                            {{ (o.payer_type or 'sender')|title }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge bg-{{ status_classes.get(ostatus,'secondary') }}-subtle
+                                     text-{{ status_classes.get(ostatus,'secondary') }} border
+                                     border-{{ status_classes.get(ostatus,'secondary') }}-subtle">
+                            {{ ostatus|replace('_',' ')|title }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if o.payment_status == 'success' %}
+                        <span class="badge bg-success-subtle text-success border border-success-subtle">
+                            <i class="bi bi-check2"></i> Paid
+                        </span>
+                        {% else %}
+                        <span class="badge bg-warning-subtle text-warning border border-warning-subtle">
+                            <i class="bi bi-clock"></i> Unpaid
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-muted small">{{ o.created_at.strftime('%d %b %y') if o.created_at else '—' }}</td>
+                    <td class="d-flex gap-1">
+                        <a href="{{ url_for('delivery.order_detail', order_id=o.id) }}"
+                           class="btn btn-sm btn-outline-orange px-2 py-1">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <form method="POST"
+                              action="{{ url_for('delivery.delete_order', order_id=o.id) }}"
+                              onsubmit="return confirm('Delete this delivery order? This cannot be undone.');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger px-2 py-1">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if pagination.pages > 1 %}
+    <div class="d-flex justify-content-center p-3">
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% if pagination.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ pagination.prev_num }}&status={{ status_filter }}&payer_type={{ payer_filter }}&payment_status={{ payment_filter }}&q={{ search }}">‹</a>
+                </li>
+                {% endif %}
+                {% for p in pagination.iter_pages() %}
+                    {% if p %}
+                    <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                        <a class="page-link" href="?page={{ p }}&status={{ status_filter }}&payer_type={{ payer_filter }}&payment_status={{ payment_filter }}&q={{ search }}">{{ p }}</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                    {% endif %}
+                {% endfor %}
+                {% if pagination.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ pagination.next_num }}&status={{ status_filter }}&payer_type={{ payer_filter }}&payment_status={{ payment_filter }}&q={{ search }}">›</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+        No orders found.
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// ── Auto-refresh (pauses while a form field is focused) ──────────────
+(function () {
+  const SECONDS = 30;
+  let paused = false;
+  document.addEventListener('focusin',  e => { if (e.target.matches('input,textarea,select')) paused = true; });
+  document.addEventListener('focusout', e => { if (e.target.matches('input,textarea,select')) paused = false; });
+
+  const badge = document.createElement('small');
+  badge.style.cssText = 'position:fixed;bottom:12px;right:16px;background:#111827;color:#9ca3af;padding:4px 10px;border-radius:20px;font-size:0.72rem;z-index:9999;';
+  document.body.appendChild(badge);
+
+  let t = SECONDS;
+  setInterval(() => {
+    if (paused) { t = SECONDS; badge.textContent = '↻ paused'; return; }
+    t--;
+    badge.textContent = `↻ ${t}s`;
+    if (t <= 0) window.location.reload();
+  }, 1000);
+})();
+</script>
+{% endblock %}

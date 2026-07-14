@@ -1,0 +1,90 @@
+{% extends "store/base.html" %}
+{% block title %}Products{% endblock %}
+{% block page_title %}My Products{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+    <h4 class="fw-bold mb-0">Products — {{ store.name }}</h4>
+    <span class="badge bg-secondary fs-6">{{ products|length }} total</span>
+</div>
+
+{% if products %}
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3" style="width:60px;">Photo</th>
+                        <th>Product</th>
+                        <th>Price</th>
+                        <th>Status</th>
+                        <th>Toggle</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in products %}
+                    <tr>
+                        <td class="ps-3">
+                            {% if p.image_url %}
+                            <img src="{{ resolve_media(p.image_url) }}" alt="{{ p.name }}"
+                                 class="rounded-2 object-fit-cover" style="width:48px;height:48px;">
+                            {% else %}
+                            <div class="rounded-2 d-flex align-items-center justify-content-center bg-light"
+                                 style="width:48px;height:48px;">
+                                <i class="bi bi-image text-muted"></i>
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="fw-semibold">{{ p.name }}</div>
+                            {% if p.description %}
+                            <div class="text-muted small">{{ p.description[:60] }}{% if p.description|length > 60 %}…{% endif %}</div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="fw-semibold">GH₵ {{ '%.2f'|format(p.base_price|float) }}</span>
+                            {% if p.discount_price %}
+                            <div class="small text-danger">
+                                Sale: GH₵ {{ '%.2f'|format(p.discount_price|float) }}
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if p.is_available %}
+                            <span class="badge bg-success">Available</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Unavailable</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <form method="POST"
+                                  action="{{ url_for('store_owner.toggle_product', product_id=p.id) }}">
+                                {% if p.is_available %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-toggle-on me-1"></i>Disable
+                                </button>
+                                {% else %}
+                                <button type="submit" class="btn btn-sm btn-outline-success">
+                                    <i class="bi bi-toggle-off me-1"></i>Enable
+                                </button>
+                                {% endif %}
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card border-0 shadow-sm">
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-box-seam fs-1 d-block mb-2"></i>
+        No products have been added to your store yet.
+        <div class="mt-2 small">Contact the admin to add products.</div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
