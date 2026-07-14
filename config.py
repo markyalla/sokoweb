@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from urllib.parse import quote_plus
 from dotenv import load_dotenv
 
 # Explicit path — works regardless of where Flask is launched from
@@ -11,7 +12,12 @@ DB_HOST = os.environ.get('DB_HOST', 'localhost')
 DB_PORT = os.environ.get('DB_PORT', '5432')
 
 def get_uri(db_name):
-    return f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{db_name}"
+    # Credentials must be percent-encoded before going into a URI — an
+    # unescaped special character (e.g. '@' or ':') in the password would
+    # otherwise be misread as part of the host, breaking the connection.
+    user = quote_plus(DB_USER)
+    password = quote_plus(DB_PASS)
+    return f"postgresql://{user}:{password}@{DB_HOST}:{DB_PORT}/{db_name}"
 
 class Config:
     SECRET_KEY = os.environ.get('JWT_SECRET', 'dev-secret-key-123')
