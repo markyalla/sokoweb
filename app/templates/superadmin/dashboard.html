@@ -28,30 +28,37 @@
     <div>
       <h5 class="fw-bold mb-1">SokoApp Dashboard</h5>
       <p class="mb-0" style="color:rgba(255,255,255,0.85);font-size:0.85rem;">
-        Full system overview &mdash; all databases live
+        {% if is_superadmin %}Full system overview &mdash; all databases live{% else %}Your section overview{% endif %}
       </p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
+      {% if show_account %}
       <div class="hero-chip">
         <div class="val">{{ stats.users_total }}</div>
         <div class="lbl">Users</div>
       </div>
+      {% endif %}
+      {% if show_shopper %}
       <div class="hero-chip">
         <div class="val">{{ stats.orders_total }}</div>
         <div class="lbl">Orders</div>
-      </div>
-      <div class="hero-chip">
-        <div class="val">{{ stats.deliveries_active }}</div>
-        <div class="lbl">Live</div>
       </div>
       <div class="hero-chip-dark">
         <div class="val">GHS {{ "%.0f"|format(stats.orders_revenue) }}</div>
         <div class="lbl">Revenue</div>
       </div>
+      {% endif %}
+      {% if show_delivery %}
+      <div class="hero-chip">
+        <div class="val">{{ stats.deliveries_active }}</div>
+        <div class="lbl">Live</div>
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>
 
+{% if show_account %}
 <!-- ── Account & Users ────────────────────────────────────────────────── -->
 <div class="mod-label">Account &amp; Users</div>
 <div class="row g-3 mb-3">
@@ -89,7 +96,9 @@
     </div>
   </div>
 </div>
+{% endif %}
 
+{% if show_shopper %}
 <!-- ── SokoShopper ────────────────────────────────────────────────────── -->
 <div class="mod-label">SokoShopper</div>
 <div class="row g-3 mb-3">
@@ -113,7 +122,9 @@
   </div>
   {% endfor %}
 </div>
+{% endif %}
 
+{% if show_delivery %}
 <!-- ── SokoDelivery ───────────────────────────────────────────────────── -->
 <div class="mod-label">SokoDelivery (Parcels)</div>
 <div class="row g-3 mb-3">
@@ -136,7 +147,9 @@
   </div>
   {% endfor %}
 </div>
+{% endif %}
 
+{% if show_susu %}
 <!-- ── SokoSusu ───────────────────────────────────────────────────────── -->
 <div class="mod-label">SokoSusu</div>
 <div class="row g-3 mb-4">
@@ -158,9 +171,11 @@
   </div>
   {% endfor %}
 </div>
+{% endif %}
 
 <!-- ── Recent Activity ────────────────────────────────────────────────── -->
 <div class="row g-4">
+  {% if show_shopper %}
   <!-- Recent Shopper Orders -->
   <div class="col-lg-6">
     <div class="sec-card">
@@ -215,7 +230,9 @@
       </div>
     </div>
   </div>
+  {% endif %}
 
+  {% if show_delivery %}
   <!-- Active Parcel Deliveries -->
   <div class="col-lg-6">
     <div class="sec-card">
@@ -278,8 +295,10 @@
       </div>
     </div>
   </div>
+  {% endif %}
 </div>
 
+{% if is_superadmin %}
 <!-- ── System Health ──────────────────────────────────────────────────── -->
 <div class="sec-card p-4">
   <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
@@ -307,4 +326,5 @@
     </div>
   </div>
 </div>
+{% endif %}
 {% endblock %}

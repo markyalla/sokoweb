@@ -57,6 +57,7 @@ class KYCSubmission(db.Model):
     country = db.Column(db.String(100))
     status = db.Column(db.String(20), default='pending')  # pending, submitted, approved, rejected
     submitted_at = db.Column(db.DateTime)
+    ocr_mismatch = db.Column(db.Boolean, default=False)  # true if the typed id_number wasn't found on the ID photo by on-device OCR
     documents = db.relationship('KYCDocument', backref='kyc', lazy=True)
 
 

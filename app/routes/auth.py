@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
-from app.routes.models import User, Store
+from app.routes.models import User, Store, UserRole
 import jwt
 import bcrypt as _bcrypt
 import os
@@ -59,12 +59,12 @@ def login():
             flash(f'Welcome back, {user.full_name}!', 'success')
 
             # Routing: admins → admin dashboard; store owners → shop portal
-            # Users with no roles at all are treated as admins (original SokoWeb accounts)
-            roles = [r.role for r in user.roles]
-            is_admin = (
-                not roles
-                or any(r in roles for r in ('superadmin', 'sokoshopper_admin', 'admin'))
+            admin_roles = (
+                'superadmin', 'sokoshopper_admin', 'sokodelivery_admin',
+                'sokoloan_admin', 'sokosusu_admin', 'sokobank_admin',
             )
+            roles = [r.role for r in user.roles]
+            is_admin = any(r in roles for r in admin_roles)
             if is_admin:
                 return redirect(url_for('dashboard.index'))
 
@@ -79,11 +79,17 @@ def login():
 
         flash('Invalid email or password', 'danger')
 
-    return render_template('auth/login.html')
+    return render_template('auth/login.html', registration_open=(User.query.count() == 0))
 
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
+    # Only the very first account may self-register (becomes superadmin).
+    # Every admin after that is created from the Users page by a superadmin.
+    if User.query.count() > 0:
+        flash('Registration is closed. Ask your superadmin to create an account for you.', 'warning')
+        return redirect(url_for('auth.login'))
+
     if request.method == 'POST':
         full_name        = request.form.get('full_name')
         email            = request.form.get('email')
@@ -107,8 +113,12 @@ def register():
                 password_hash=generate_password_hash(password),
             )
             db.session.add(new_user)
+            db.session.flush()
+
+            db.session.add(UserRole(user_id=new_user.id, role='superadmin'))
             db.session.commit()
-            flash('Registration successful! Please log in.', 'success')
+
+            flash('Registration successful! You are the first account and have been made superadmin. Please log in.', 'success')
             return redirect(url_for('auth.login'))
 
     return render_template('auth/register.html')

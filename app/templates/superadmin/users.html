@@ -34,12 +34,15 @@
                     <tr>
                         <th class="ps-4 py-3">User Details</th>
                         <th class="py-3">Contact</th>
+                        <th class="py-3">Role</th>
                         <th class="py-3 text-center">Joined</th>
                         <th class="pe-4 py-3 text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="border-top-0">
                     {% for user in users %}
+                    {% set user_roles = user.roles|map(attribute='role')|list %}
+                    {% set is_shop_owner = user.id|string in store_owner_ids %}
                     <tr>
                         <td class="ps-4 py-3">
                             <div class="d-flex align-items-center">
@@ -48,7 +51,7 @@
                                      class="rounded-circle me-3 border border-light shadow-sm" style="width: 40px; height: 40px; object-fit: cover;"
                                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                 {% endif %}
-                                <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center me-3" 
+                                <div class="bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center me-3"
                                      style="width: 40px; height: 40px; {% if user.profile_image_url %}display: none;{% endif %}">
                                     {{ user.full_name[0] }}
                                 </div>
@@ -62,10 +65,28 @@
                             <div class="small fw-semibold"><i class="bi bi-envelope me-1"></i> {{ user.email }}</div>
                             <div class="small text-muted mt-1"><i class="bi bi-telephone me-1"></i> {{ user.phone_number }}</div>
                         </td>
+                        <td>
+                            {% if 'superadmin' in user_roles %}
+                                <span class="badge rounded-pill bg-danger">Superadmin</span>
+                            {% else %}
+                                {% for r in user_roles if r in assignable_roles %}
+                                    <span class="badge rounded-pill bg-primary me-1">{{ r.replace('soko', '').replace('_', ' ')|title }}</span>
+                                {% endfor %}
+                                {% if is_shop_owner %}
+                                    <span class="badge rounded-pill bg-success">Shop Owner</span>
+                                {% endif %}
+                                {% if 'driver' in user_roles %}
+                                    <span class="badge rounded-pill bg-info text-dark">Driver</span>
+                                {% endif %}
+                                {% if not (user_roles|select('in', assignable_roles)|list) and not is_shop_owner and 'driver' not in user_roles %}
+                                    <span class="badge rounded-pill bg-light text-muted border">User</span>
+                                {% endif %}
+                            {% endif %}
+                        </td>
                         <td class="small text-center">{{ user.created_at.strftime('%b %d, %Y') }}</td>
                         <td class="pe-4 text-end">
                             <button class="btn btn-sm btn-outline-orange px-3 rounded-pill"
-                                data-bs-toggle="modal" 
+                                data-bs-toggle="modal"
                                 data-bs-target="#userModal"
                                 data-user-id="{{ user.id }}"
                                 data-full-name="{{ user.full_name }}"
@@ -81,18 +102,20 @@
                                 data-kyc-id="{{ user.id }}"
                                 data-kyc-details="{{ user.kyc.id_type }} | {{ user.kyc.id_number }} | {{ user.kyc.address }}, {{ user.kyc.city }}, {{ user.kyc.country }}"
                                 data-kyc-image="{{ user.kyc.id_image_url if user.kyc and user.kyc.id_image_url else '' }}"
+                                data-kyc-mismatch="{{ 'true' if user.kyc and user.kyc.ocr_mismatch else 'false' }}"
                                 data-kyc-docs='[{% for doc in user.kyc.documents %}{"type": "{{ doc.document_type }}", "url": "{{ doc.file_url }}"}{% if not loop.last %},{% endif %}{% endfor %}]'
                                 data-driver-status="{{ user.driver_profile.status if user.driver_profile else 'None' }}"
                                 data-driver-id="{{ user.id }}"
                                 data-driver-vehicle="{{ user.driver_profile.vehicle_type }} - {{ user.driver_profile.vehicle_model }} ({{ user.driver_profile.vehicle_plate }})"
                                 data-driver-stats="Rating: {{ user.driver_profile.rating }} | Deliveries: {{ user.driver_profile.total_deliveries }}"
                                 data-driver-license="{{ user.driver_profile.license_number }}"
+                                data-roles='{{ user_roles|tojson }}'
                             >View Profile</button>
                         </td>
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="4" class="text-center py-5 text-muted">No users found in database.</td>
+                        <td colspan="5" class="text-center py-5 text-muted">No users found in database.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -114,8 +137,6 @@
                 <div class="text-center mb-4">
                     <img id="modalProfileImg" src="" class="rounded-circle border border-3 border-light shadow-sm mb-3 mx-auto d-block"
                          style="width: 100px; height: 100px; object-fit: cover; display: none;">
-                    <div id="modalProfileFallback" class="rounded-circle mx-auto d-flex align-items-center justify-content-center fw-bold shadow-sm mb-3"
-                         style="width:100px;height:100px;font-size:2.5rem;background:#FF8000;color:#fff;"></div>
                 </div>
 
                 <!-- User Info Form (CRUD: Update) -->
@@ -179,6 +200,10 @@
                             <div class="d-flex justify-content-between align-items-center">
                                 <span id="modalKycStatus" class="badge rounded-pill mb-2"></span>
                             </div>
+                            <div id="modalKycMismatch" class="alert alert-warning py-2 px-3 small mb-2" style="display:none;">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                                Typed ID number did not match the photo during on-device scan — verify carefully before approving.
+                            </div>
                             <div id="modalKycDetails" class="small text-muted mb-2"></div>
                             <div id="modalKycDocs" class="d-flex gap-2 flex-wrap"></div>
                         </div>
@@ -219,12 +244,29 @@
                         </div>
                     </div>
                 </div>
+
+                {% if is_superadmin %}
+                <hr class="my-4">
+                <div class="sec-label">Roles &amp; Access</div>
+                <div id="modalRoleBadges" class="d-flex flex-wrap gap-2 mb-3"></div>
+                <form id="addRoleForm" method="POST" class="d-flex gap-2">
+                    <select name="role" id="modalRoleSelect" class="form-select form-select-sm">
+                        {% for r in assignable_roles %}
+                        <option value="{{ r }}">{{ r.replace('soko', '').replace('_', ' ')|title }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-sm btn-orange text-nowrap">Grant Role</button>
+                </form>
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
 
 <script>
+const IS_SUPERADMIN = {{ 'true' if is_superadmin else 'false' }};
+const ASSIGNABLE_ROLES = {{ assignable_roles|tojson }};
+
 const API_BASE_URL = "{{ API_BASE_URL }}";
 const BACKEND_JWT = "{{ BACKEND_TOKEN }}";
 const MEDIA_ENDPOINT = "/api/v1/media/serve/";
@@ -266,19 +308,47 @@ document.getElementById('userModal').addEventListener('show.bs.modal', function 
 
     // Profile Image Logic
     const imgEl = document.getElementById('modalProfileImg');
-    const fallbackEl = document.getElementById('modalProfileFallback');
     if (profileImg) {
         const cleanPath = profileImg.startsWith('/') ? profileImg.substring(1) : profileImg;
         imgEl.src = profileImg.startsWith('http') ? profileImg : `${API_BASE_URL}${MEDIA_ENDPOINT}${cleanPath}`;
-        imgEl.style.display = 'block'; fallbackEl.style.display = 'none';
+        imgEl.style.display = 'block';
     } else {
-        fallbackEl.textContent = fullName[0]; imgEl.style.display = 'none'; fallbackEl.style.display = 'flex';
+        imgEl.style.display = 'none';
     }
     
     // Set form actions
     document.getElementById('updateUserForm').action = `/account/users/${userId}/update`;
     
     document.getElementById('deleteUserForm').action = `/account/users/${userId}/delete`;
+
+    // Roles & Access
+    if (IS_SUPERADMIN) {
+        const roles = JSON.parse(btn.getAttribute('data-roles') || '[]');
+        const roleBadgesEl = document.getElementById('modalRoleBadges');
+        roleBadgesEl.innerHTML = '';
+        roles.filter(r => ASSIGNABLE_ROLES.includes(r)).forEach(role => {
+            const label = role.replace('soko', '').replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase());
+            const wrap = document.createElement('span');
+            wrap.className = 'badge rounded-pill bg-primary d-flex align-items-center gap-1';
+            wrap.innerHTML = `${label} <button type="button" class="btn-close btn-close-white" style="font-size:.55rem;" aria-label="Revoke"></button>`;
+            wrap.querySelector('button').addEventListener('click', () => {
+                if (!confirm(`Revoke ${label} from ${fullName}?`)) return;
+                const f = document.createElement('form');
+                f.method = 'POST';
+                f.action = `/account/users/${userId}/roles/remove`;
+                const input = document.createElement('input');
+                input.type = 'hidden'; input.name = 'role'; input.value = role;
+                f.appendChild(input);
+                document.body.appendChild(f);
+                f.submit();
+            });
+            roleBadgesEl.appendChild(wrap);
+        });
+        if (!roles.filter(r => ASSIGNABLE_ROLES.includes(r)).length) {
+            roleBadgesEl.innerHTML = '<span class="text-muted small">No admin roles assigned.</span>';
+        }
+        document.getElementById('addRoleForm').action = `/account/users/${userId}/roles/add`;
+    }
     // Inside your showUserModal() or wherever you populate the modal
 function showUserModal(userId) {
     const user = usersData[userId]; // however you're indexing your users
@@ -351,6 +421,9 @@ function showUserModal(userId) {
     kycBadge.textContent = kycStatus;
     kycBadge.className = 'badge rounded-pill ' + (kycStatus === 'approved' ? 'bg-success' : kycStatus === 'pending' ? 'bg-warning' : 'bg-secondary');
     kycDetailsEl.textContent = kycDetails !== ' |  | , ' ? kycDetails : 'No details provided';
+
+    const kycMismatch = btn.getAttribute('data-kyc-mismatch') === 'true';
+    document.getElementById('modalKycMismatch').style.display = kycMismatch ? 'block' : 'none';
     
     kycDocsEl.innerHTML = '';
     // Show KYC ID image if available

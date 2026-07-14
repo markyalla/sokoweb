@@ -39,7 +39,13 @@
                             {{ id_labels.get(sub.id_type, sub.id_type or '—') }}
                         </span>
                     </td>
-                    <td class="small font-monospace">{{ sub.id_number or '—' }}</td>
+                    <td class="small font-monospace">
+                        {{ sub.id_number or '—' }}
+                        {% if sub.ocr_mismatch %}
+                        <i class="bi bi-exclamation-triangle-fill text-warning ms-1"
+                           title="Typed ID number did not match the ID photo during on-device scan"></i>
+                        {% endif %}
+                    </td>
                     <td>
                         {% if sub.id_image_url %}
                         <a href="{{ media_base_url }}{{ sub.id_image_url }}" target="_blank" rel="noopener">

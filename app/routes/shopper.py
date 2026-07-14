@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, g, redirect, url_for, request, flash, current_app, session # type: ignore
-from app.routes.models import Store, Product, Order, OrderItem, Category, User, DriverProfile, OrderDelivery, Payment
+from app.routes.models import Store, Product, Order, OrderItem, Category, User, DriverProfile, OrderDelivery, Payment, ShopCashoutRequest
 from app import db
 from app.routes import get_relative_path
 from math import radians, cos, sin, asin, sqrt
@@ -9,6 +9,16 @@ import os
 import uuid
 
 shopper_bp = Blueprint('shopper', __name__)
+
+
+def _require_role():
+    if not g.user:
+        return redirect(url_for('auth.login'))
+    roles = [r.role for r in g.user.roles]
+    if 'superadmin' not in roles and 'sokoshopper_admin' not in roles:
+        flash('You do not have access to that section.', 'danger')
+        return redirect(url_for('dashboard.index'))
+
 
 def calculate_distance(lat1, lon1, lat2, lon2):
     """Calculates distance between two points in km using Haversine formula."""
@@ -23,8 +33,9 @@ def calculate_distance(lat1, lon1, lat2, lon2):
 
 @shopper_bp.route('/')
 def index():
-    if not g.user:
-        return redirect(url_for('auth.login'))
+    redir = _require_role()
+    if redir:
+        return redir
     stores = Store.query.all()
     categories = Category.query.all()
     users = User.query.options(
@@ -35,8 +46,9 @@ def index():
 
 @shopper_bp.route('/categories/add', methods=['GET', 'POST'])
 def add_category():
-    if not g.user:
-        return redirect(url_for('auth.login'))
+    redir = _require_role()
+    if redir:
+        return redir
 
     if request.method == 'POST':
         data = {
@@ -64,8 +76,9 @@ def add_category():
 
 @shopper_bp.route('/stores/add', methods=['GET', 'POST'])
 def add_store():
-    if not g.user:
-        return redirect(url_for('auth.login'))
+    redir = _require_role()
+    if redir:
+        return redir
     
     if request.method == 'POST':
         name             = request.form.get('name')
@@ -108,10 +121,13 @@ def add_store():
 
 @shopper_bp.route('/stores/<uuid:id>/delete', methods=['POST'])
 def delete_store(id):
-    if not g.user:
-        return redirect(url_for('auth.login'))
+    redir = _require_role()
+    if redir:
+        return redir
     store = Store.query.get_or_404(id)
     name  = store.name
+    Product.query.filter_by(store_id=str(id)).delete(synchronize_session=False)
+    ShopCashoutRequest.query.filter_by(store_id=str(id)).delete(synchronize_session=False)
     db.session.delete(store)
     db.session.commit()
     flash(f'Store "{name}" has been permanently removed.', 'danger')
@@ -119,8 +135,9 @@ def delete_store(id):
 
 @shopper_bp.route('/products/<uuid:id>/delete', methods=['POST'])
 def delete_product(id):
-    if not g.user:
-        return redirect(url_for('auth.login'))
+    redir = _require_role()
+    if redir:
+        return redir
     product = Product.query.get_or_404(id)
     store_id = product.store_id
     db.session.delete(product)
@@ -130,8 +147,9 @@ def delete_product(id):
 
 @shopper_bp.route('/orders/<uuid:order_id>/delete', methods=['POST'])
 def delete_order(order_id):
-    if not g.user:
-        return redirect(url_for('auth.login'))
+    redir = _require_role()
+    if redir:
+        return redir
     order = Order.query.get_or_404(order_id)
     store_id = order.store_id
     # Delete child records first to satisfy NOT NULL FK constraints
@@ -145,8 +163,9 @@ def delete_order(order_id):
 
 @shopper_bp.route('/stores/<uuid:id>/manage')
 def manage_store(id):
-    if not g.user:
-        return redirect(url_for('auth.login'))
+    redir = _require_role()
+    if redir:
+        return redir
     store = Store.query.get_or_404(id)
 
     media_base_url = f"{os.getenv('API_BASE_URL', 'http://localhost:8082')}/api/v1/media/serve/"
@@ -224,8 +243,9 @@ def manage_store(id):
 
 @shopper_bp.route('/stores/<uuid:id>/products/add', methods=['POST'])
 def add_product(id):
-    if not g.user:
-        return redirect(url_for('auth.login'))
+    redir = _require_role()
+    if redir:
+        return redir
     new_product = Product(
         store_id=str(id),
         name=request.form.get('name'),
@@ -241,8 +261,9 @@ def add_product(id):
 
 @shopper_bp.route('/products/<uuid:id>/edit', methods=['POST'])
 def edit_product(id):
-    if not g.user:
-        return redirect(url_for('auth.login'))
+    redir = _require_role()
+    if redir:
+        return redir
     product              = Product.query.get_or_404(id)
     product.name         = request.form.get('name')
     product.description  = request.form.get('description')
@@ -255,8 +276,9 @@ def edit_product(id):
 
 @shopper_bp.route('/products/<uuid:id>/toggle-availability', methods=['POST'])
 def toggle_product_availability(id):
-    if not g.user:
-        return redirect(url_for('auth.login'))
+    redir = _require_role()
+    if redir:
+        return redir
     product              = Product.query.get_or_404(id)
     product.is_available = not product.is_available
     db.session.commit()
@@ -266,8 +288,9 @@ def toggle_product_availability(id):
 
 @shopper_bp.route('/stores/<uuid:id>/toggle-open', methods=['POST'])
 def toggle_store_open(id):
-    if not g.user:
-        return redirect(url_for('auth.login'))
+    redir = _require_role()
+    if redir:
+        return redir
     store        = Store.query.get_or_404(id)
     store.is_open = not store.is_open
     db.session.commit()
@@ -277,8 +300,9 @@ def toggle_store_open(id):
 
 @shopper_bp.route('/orders/<uuid:id>/status', methods=['POST'])
 def update_order_status(id):
-    if not g.user:
-        return redirect(url_for('auth.login'))
+    redir = _require_role()
+    if redir:
+        return redir
     order        = Order.query.get_or_404(id)
     order.status = request.form.get('status')
     db.session.commit()
@@ -287,8 +311,9 @@ def update_order_status(id):
 
 @shopper_bp.route('/orders/<uuid:order_id>/assign_driver', methods=['POST'])
 def assign_driver(order_id):
-    if not g.user:
-        return redirect(url_for('auth.login'))
+    redir = _require_role()
+    if redir:
+        return redir
 
     driver_id_str = request.form.get('driver_id')
     driver_uuid   = uuid.UUID(driver_id_str)
@@ -326,7 +351,8 @@ def assign_driver(order_id):
 
 @shopper_bp.route('/orders')
 def orders():
-    if not g.user:
-        return redirect(url_for('auth.login'))
+    redir = _require_role()
+    if redir:
+        return redir
     all_orders = Order.query.order_by(Order.created_at.desc()).all()
     return render_template('superadmin/orders.html', orders=all_orders)

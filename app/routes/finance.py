@@ -13,8 +13,13 @@ finance_bp = Blueprint('finance', __name__)
 
 
 def _require_login():
+    """Cross-domain financial reconciliation — superadmin only."""
     if not g.user:
         return redirect(url_for('auth.login'))
+    roles = [r.role for r in g.user.roles]
+    if 'superadmin' not in roles:
+        flash('You do not have access to that section.', 'danger')
+        return redirect(url_for('dashboard.index'))
 
 
 # ── Mark a driver cashout request as paid ────────────────────────

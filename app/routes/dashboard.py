@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, g, redirect, url_for, jsonify
+from flask import Blueprint, render_template, g, redirect, url_for, jsonify, flash
 from app.routes.models import (User, Order, DeliveryAssignment, Store, Product,
                                 DriverProfile, Payment, SusuGroup, KYCSubmission,
                                 Delivery, Category)
@@ -20,6 +20,13 @@ PARCEL_ACTIVE_STATUSES = ['pending', 'broadcast', 'assigned', 'accepted',
 def index():
     if not g.user:
         return redirect(url_for('auth.login'))
+
+    roles = [r.role for r in g.user.roles]
+    is_superadmin = 'superadmin' in roles
+    show_account  = is_superadmin
+    show_shopper  = is_superadmin or 'sokoshopper_admin' in roles
+    show_delivery = is_superadmin or 'sokodelivery_admin' in roles
+    show_susu     = is_superadmin or 'sokosusu_admin' in roles
 
     recent_orders = []
     recent_deliveries = []
@@ -60,11 +67,13 @@ def index():
         susu_active = SusuGroup.query.filter_by(status='active').count()
 
         # ── Recent data ────────────────────────────────────────────
-        recent_orders = Order.query.order_by(Order.created_at.desc()).limit(8).all()
-        recent_deliveries = DeliveryAssignment.query.filter(
-            DeliveryAssignment.status.in_(
-                ['pending', 'broadcast', 'assigned', 'accepted', 'picked_up', 'in_transit']
-            )).order_by(DeliveryAssignment.created_at.desc()).limit(8).all()
+        if show_shopper:
+            recent_orders = Order.query.order_by(Order.created_at.desc()).limit(8).all()
+        if show_delivery:
+            recent_deliveries = DeliveryAssignment.query.filter(
+                DeliveryAssignment.status.in_(
+                    ['pending', 'broadcast', 'assigned', 'accepted', 'picked_up', 'in_transit']
+                )).order_by(DeliveryAssignment.created_at.desc()).limit(8).all()
 
         stats = {
             'users_total':     users_total,
@@ -103,7 +112,12 @@ def index():
     return render_template('superadmin/dashboard.html',
                            stats=stats,
                            recent_orders=recent_orders,
-                           recent_deliveries=recent_deliveries)
+                           recent_deliveries=recent_deliveries,
+                           is_superadmin=is_superadmin,
+                           show_account=show_account,
+                           show_shopper=show_shopper,
+                           show_delivery=show_delivery,
+                           show_susu=show_susu)
 
 
 @dashboard_bp.route('/active-deliveries')
@@ -113,6 +127,9 @@ def active_deliveries():
     needs opening two separate silos to see everything moving right now."""
     if not g.user:
         return redirect(url_for('auth.login'))
+    if 'superadmin' not in [r.role for r in g.user.roles]:
+        flash('You do not have access to that section.', 'danger')
+        return redirect(url_for('dashboard.index'))
 
     orders = Order.query.filter(Order.status.in_(SHOPPER_ACTIVE_STATUSES)) \
         .order_by(Order.created_at.desc()).all()

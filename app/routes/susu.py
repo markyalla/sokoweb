@@ -6,6 +6,15 @@ from app.routes.models import SusuContribution, SusuGroup, SusuMember, SusuPayou
 susu_bp = Blueprint('susu', __name__)
 
 
+def _require_role():
+    if not g.user:
+        return redirect(url_for('auth.login'))
+    roles = [r.role for r in g.user.roles]
+    if 'superadmin' not in roles and 'sokosusu_admin' not in roles:
+        flash('You do not have access to that section.', 'danger')
+        return redirect(url_for('dashboard.index'))
+
+
 def _api_headers():
     from flask import session
     token = session.get('backend_token', '')
@@ -18,8 +27,9 @@ def _api_base():
 
 @susu_bp.route('/')
 def index():
-    if not g.user:
-        return redirect(url_for('auth.login'))
+    redir = _require_role()
+    if redir:
+        return redir
     groups = SusuGroup.query.order_by(SusuGroup.created_at.desc()).all()
     stats = {
         'total': len(groups),
@@ -32,8 +42,9 @@ def index():
 
 @susu_bp.route('/groups/create', methods=['GET', 'POST'])
 def create_group():
-    if not g.user:
-        return redirect(url_for('auth.login'))
+    redir = _require_role()
+    if redir:
+        return redir
 
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
@@ -72,8 +83,9 @@ def create_group():
 
 @susu_bp.route('/groups/<group_id>')
 def group_detail(group_id):
-    if not g.user:
-        return redirect(url_for('auth.login'))
+    redir = _require_role()
+    if redir:
+        return redir
 
     from app.routes.models import User
 
@@ -126,8 +138,9 @@ def group_detail(group_id):
 
 @susu_bp.route('/groups/<group_id>/activate', methods=['POST'])
 def activate_group(group_id):
-    if not g.user:
-        return redirect(url_for('auth.login'))
+    redir = _require_role()
+    if redir:
+        return redir
     group = SusuGroup.query.get_or_404(group_id)
     group.status = 'active'
     from app import db
@@ -138,8 +151,9 @@ def activate_group(group_id):
 
 @susu_bp.route('/groups/<group_id>/complete', methods=['POST'])
 def complete_group(group_id):
-    if not g.user:
-        return redirect(url_for('auth.login'))
+    redir = _require_role()
+    if redir:
+        return redir
     group = SusuGroup.query.get_or_404(group_id)
     group.status = 'completed'
     from app import db

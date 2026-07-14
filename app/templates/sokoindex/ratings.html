@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="d-flex align-items-center gap-3 mb-4">
+    <h5 class="fw-bold mb-0">SokoIndex Ratings</h5>
+    <span class="badge bg-secondary">{{ ratings|length }}</span>
+</div>
+
+<div class="bg-white rounded-3 shadow-sm overflow-hidden">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-3">Customer</th>
+                    <th>Artisan</th>
+                    <th>Score</th>
+                    <th>Comment</th>
+                    <th>Rated</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in ratings %}
+                {% set customer = customers_by_id.get(r.customer_id) %}
+                {% set artisan = artisans_by_id.get(r.artisan_id) %}
+                <tr>
+                    <td class="ps-3 small">
+                        {% if customer %}
+                        <div class="fw-semibold">{{ customer.full_name }}</div>
+                        <div class="text-muted">{{ customer.phone_number }}</div>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="small fw-semibold">{{ artisan.display_name if artisan else '—' }}</td>
+                    <td>
+                        <span class="badge bg-warning-subtle text-warning border">
+                            {{ r.score }} <i class="bi bi-star-fill"></i>
+                        </span>
+                    </td>
+                    <td class="small">{{ r.comment|truncate(80) if r.comment else '—' }}</td>
+                    <td class="small text-muted">{{ r.created_at.strftime('%d %b %Y %H:%M') if r.created_at else '—' }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center py-4 text-muted small">No ratings yet.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -8,8 +8,13 @@ delivery_bp = Blueprint('delivery', __name__)
 
 
 def _require_login():
+    """Gate every route in this blueprint to sokodelivery_admin / superadmin."""
     if not g.user:
         return redirect(url_for('auth.login'))
+    roles = [r.role for r in g.user.roles]
+    if 'superadmin' not in roles and 'sokodelivery_admin' not in roles:
+        flash('You do not have access to that section.', 'danger')
+        return redirect(url_for('dashboard.index'))
 
 
 def _api_base():

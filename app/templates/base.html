@@ -38,23 +38,34 @@
                 </a>
             </div>
             <nav class="nav nav-pills flex-column">
+                {% set my_roles = g.user.roles|map(attribute='role')|list if g.user else [] %}
+                {% set is_super = 'superadmin' in my_roles %}
                 <a href="{{ url_for('dashboard.index') }}" class="nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}">
                     <i class="bi bi-grid"></i> Dashboard
                 </a>
-                
+
                 <div class="px-4 mt-4 mb-2 small text-uppercase text-muted fw-semibold" style="letter-spacing: 0.05rem;">Management</div>
+                {% if is_super %}
                 <a href="{{ url_for('account.user_list') }}" class="nav-link {% if 'account' in request.endpoint %}active{% endif %}">
                     <i class="bi bi-people"></i> Users & KYC
                 </a>
+                {% endif %}
+                {% if is_super or 'sokoshopper_admin' in my_roles %}
                 <a href="{{ url_for('shopper.index') }}" class="nav-link {% if 'shopper' in request.endpoint %}active{% endif %}">
                     <i class="bi bi-shop"></i> Stores & Products
                 </a>
+                {% endif %}
+                {% if is_super or 'sokodelivery_admin' in my_roles %}
                 <a href="{{ url_for('delivery.orders_list') }}" class="nav-link {% if 'delivery' in request.endpoint %}active{% endif %}">
                     <i class="bi bi-truck"></i> Deliveries
                 </a>
+                {% endif %}
+                {% if is_super %}
                 <a href="{{ url_for('dashboard.active_deliveries') }}" class="nav-link {% if request.endpoint == 'dashboard.active_deliveries' %}active{% endif %}">
                     <i class="bi bi-broadcast"></i> Active Deliveries
                 </a>
+                {% endif %}
+                {% if is_super or 'sokodelivery_admin' in my_roles %}
                 <a href="{{ url_for('sokoindex.applications_list') }}" class="nav-link {% if request.endpoint == 'sokoindex.applications_list' %}active{% endif %}">
                     <i class="bi bi-hammer"></i> SokoIndex Applications
                 </a>
@@ -64,17 +75,25 @@
                 <a href="{{ url_for('sokoindex.bookings_list') }}" class="nav-link {% if request.endpoint == 'sokoindex.bookings_list' %}active{% endif %}">
                     <i class="bi bi-calendar-check"></i> Bookings
                 </a>
+                <a href="{{ url_for('sokoindex.ratings_list') }}" class="nav-link {% if request.endpoint == 'sokoindex.ratings_list' %}active{% endif %}">
+                    <i class="bi bi-star"></i> Ratings
+                </a>
                 <a href="{{ url_for('sokoindex.complaints_list') }}" class="nav-link {% if request.endpoint == 'sokoindex.complaints_list' %}active{% endif %}">
                     <i class="bi bi-exclamation-triangle"></i> Complaints
                 </a>
+                {% endif %}
 
+                {% if is_super %}
                 <div class="px-4 mt-4 mb-2 small text-uppercase text-muted fw-semibold" style="letter-spacing: 0.05rem;">Finance</div>
                 <a href="{{ url_for('finance.track_expenses') }}" class="nav-link {% if 'finance' in request.endpoint %}active{% endif %}">
                     <i class="bi bi-bar-chart-line"></i> Track Expenses
                 </a>
                 <a href="#" class="nav-link"><i class="bi bi-wallet2"></i> Bank</a>
-                <a href="{{ url_for('susu.index') }}" class="nav-link {% if 'susu' in request.endpoint %}active{% endif %}"><i class="bi bi-piggy-bank"></i> Susu</a>
                 <a href="#" class="nav-link"><i class="bi bi-cash-stack"></i> Loans</a>
+                {% endif %}
+                {% if is_super or 'sokosusu_admin' in my_roles %}
+                <a href="{{ url_for('susu.index') }}" class="nav-link {% if 'susu' in request.endpoint %}active{% endif %}"><i class="bi bi-piggy-bank"></i> Susu</a>
+                {% endif %}
 
                 <div class="mt-auto p-3 pt-5">
                     <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-2">
