@@ -488,6 +488,9 @@ class ArtisanProfile(db.Model):
     suspension_reason = db.Column(db.Text)
     joining_fee_paid = db.Column(db.Boolean, default=False)
     joining_payment_ref = db.Column(db.String(255))
+    # One-time payment to unlock incoming-jobs (customer contact info + accept/reject)
+    contact_unlock_paid = db.Column(db.Boolean, default=False)
+    contact_unlock_payment_ref = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -591,3 +594,21 @@ class SokoIndexFeatureFlag(db.Model):
     contact_unlock_enabled = db.Column(db.Boolean, default=False)
     joining_fee_enabled = db.Column(db.Boolean, default=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class SokoIndexCustomerUnlock(db.Model):
+    """One row per customer who has paid the one-time contact-unlock fee.
+    Unlocked=True means this customer can see every artisan's contact info
+    and book freely — not tied to any single booking or artisan."""
+    __bind_key__ = 'sokoindex'
+    __tablename__ = 'sokoindex_customer_unlocks'
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = db.Column(UUID(as_uuid=True), nullable=False, unique=True)
+    unlocked = db.Column(db.Boolean, default=False)
+    payment_ref = db.Column(db.String(255))
+    payment_status = db.Column(db.String(20), default='pending')  # pending, paid, bypassed
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def get_user(self):
+        return User.query.get(self.user_id)

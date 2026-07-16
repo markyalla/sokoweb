@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, g, redirect, url_for, flash, reque
 from app.routes.models import (
     ArtisanApplication, ArtisanProfile, Portfolio, SokoIndexBooking,
     SokoIndexRating, Recommendation, Complaint, UserRole, User,
-    SokoIndexFeatureFlag,
+    SokoIndexFeatureFlag, SokoIndexCustomerUnlock,
 )
 from datetime import datetime
 from app import db
@@ -184,10 +184,15 @@ def bookings_list():
     customer_ids = [b.customer_id for b in bookings if b.customer_id]
     customers_by_id = {u.id: u for u in User.query.filter(User.id.in_(customer_ids)).all()} if customer_ids else {}
 
+    customer_unlocks_by_id = {
+        u.user_id: u for u in SokoIndexCustomerUnlock.query.filter(SokoIndexCustomerUnlock.user_id.in_(customer_ids)).all()
+    } if customer_ids else {}
+
     return render_template(
         'sokoindex/bookings.html',
         pagination=pagination, bookings=bookings, status=status,
-        customers_by_id=customers_by_id,
+        customers_by_id=customers_by_id, customer_unlocks_by_id=customer_unlocks_by_id,
+        flag=get_feature_flags(),
     )
 
 
