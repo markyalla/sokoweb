@@ -316,8 +316,13 @@ def assign_driver(order_id):
         return redir
 
     driver_id_str = request.form.get('driver_id')
-    driver_uuid   = uuid.UUID(driver_id_str)
-    order         = Order.query.get_or_404(order_id)
+    try:
+        driver_uuid = uuid.UUID(driver_id_str)
+    except (TypeError, ValueError):
+        flash('Please select a driver.', 'warning')
+        return redirect(request.referrer or url_for('shopper.index'))
+
+    order = Order.query.get_or_404(order_id)
     
     from datetime import datetime
     now = datetime.utcnow()
