@@ -205,7 +205,7 @@ class OrderDelivery(db.Model):
     status = db.Column(db.String(50), default='assigned') # assigned, picked_up, in_transit, delivered
     current_lat = db.Column(db.Float)
     current_lng = db.Column(db.Float)
-    assigned_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class Payment(db.Model):
