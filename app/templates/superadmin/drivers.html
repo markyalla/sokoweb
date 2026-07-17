@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .page-hero { background:#FF8000;color:#fff;border-radius:16px;padding:24px 28px;margin-bottom:24px; }
+  .table th { font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;color:#9ca3af;font-weight:700; }
+  .table td { font-size:.84rem;vertical-align:middle; }
+  .sortable-th a { color:inherit;text-decoration:none; }
+  .sortable-th a:hover { color:#FF8000; }
+</style>
+
+<div class="page-hero">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div>
+      <h5 class="fw-bold mb-1">Drivers</h5>
+      <p class="mb-0" style="color:rgba(255,255,255,.85);font-size:.85rem;">
+        sokoaccount &middot; {{ drivers|length }} drivers registered
+      </p>
+    </div>
+    <span class="badge rounded-pill" style="background:rgba(255,255,255,.2);color:#fff;font-size:.8rem;padding:6px 14px;">
+      <i class="bi bi-person-badge me-1"></i>{{ drivers|length }} total
+    </span>
+  </div>
+</div>
+
+{% macro sort_link(label, key) %}
+  {% set next_dir = 'asc' if (sort == key and dir == 'desc') else 'desc' %}
+  <a href="{{ url_for('drivers.drivers_list', sort=key, dir=next_dir) }}">
+    {{ label }}
+    {% if sort == key %}<i class="bi bi-caret-{{ 'up' if dir == 'asc' else 'down' }}-fill"></i>{% endif %}
+  </a>
+{% endmacro %}
+
+<div class="bg-white rounded-3 shadow-sm overflow-hidden">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="bg-light text-secondary small text-uppercase">
+        <tr>
+          <th class="ps-4 py-3 sortable-th">{{ sort_link('Driver', 'name') }}</th>
+          <th class="py-3 sortable-th">{{ sort_link('Rating', 'rating') }}</th>
+          <th class="py-3 sortable-th">{{ sort_link('Deliveries', 'total_deliveries') }}</th>
+          <th class="py-3 sortable-th">{{ sort_link('Status', 'status') }}</th>
+          <th class="py-3 sortable-th">{{ sort_link('Online', 'is_online') }}</th>
+          <th class="pe-4 py-3">Vehicle</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in drivers %}
+        {% set dp = row.profile %}
+        {% set u = row.user %}
+        <tr>
+          <td class="ps-4">
+            <div class="fw-bold">{{ u.full_name }}</div>
+            <div class="text-muted small">{{ u.phone_number }}</div>
+          </td>
+          <td><i class="bi bi-star-fill text-warning"></i> {{ '%.2f'|format(dp.rating or 0) }}</td>
+          <td>{{ dp.total_deliveries or 0 }}</td>
+          <td>
+            <span class="badge rounded-pill bg-{{ 'success' if dp.status == 'active' else ('danger' if dp.status == 'suspended' else 'secondary') }}">
+              {{ dp.status|title }}
+            </span>
+          </td>
+          <td>
+            {% if dp.is_online %}
+            <span class="badge bg-success-subtle text-success border">Online</span>
+            {% else %}
+            <span class="text-muted small">Offline</span>
+            {% endif %}
+          </td>
+          <td class="pe-4 small">{{ dp.vehicle_type or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="text-center py-4 text-muted small">No drivers found.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, g, redirect, url_for, request, flash, current_app
 from sqlalchemy import func, desc, cast, String
-from app.routes.models import Delivery, DeliveryAssignment, DriverEarning, DriverProfile, User
+from app.routes.models import Delivery, DeliveryAssignment, DriverEarning, DriverProfile, User, DriverComplaint
 from app import db
+from datetime import datetime
 import math
 
 delivery_bp = Blueprint('delivery', __name__)
@@ -314,6 +315,44 @@ def earnings_list():
         total_settled=float(total_settled),
         total_pending=float(total_pending),
     )
+
+
+# ── Admin: Driver Complaints ─────────────────────────────────────────────────
+
+@delivery_bp.route('/complaints')
+def driver_complaints_list():
+    redir = _require_login()
+    if redir:
+        return redir
+    complaints = DriverComplaint.query.order_by(
+        DriverComplaint.status.desc(), DriverComplaint.created_at.desc()
+    ).all()
+
+    complainant_ids = [c.complainant_user_id for c in complaints if c.complainant_user_id]
+    driver_ids = [c.against_driver_id for c in complaints if c.against_driver_id]
+    all_ids = list(set(complainant_ids + driver_ids))
+    users_by_id = {u.id: u for u in User.query.filter(User.id.in_(all_ids)).all()} if all_ids else {}
+
+    return render_template(
+        'delivery/driver_complaints.html',
+        complaints=complaints, users_by_id=users_by_id,
+    )
+
+
+@delivery_bp.route('/complaints/<uuid:id>/resolve', methods=['POST'])
+def resolve_driver_complaint(id):
+    redir = _require_login()
+    if redir:
+        return redir
+    complaint = DriverComplaint.query.get_or_404(id)
+    complaint.status = request.form.get('status', 'resolved')
+    complaint.driver_at_fault = request.form.get('driver_at_fault') == 'true'
+    complaint.resolution_notes = request.form.get('resolution_notes', '')
+    complaint.resolved_by = g.user.id
+    complaint.resolved_at = datetime.utcnow()
+    db.session.commit()
+    flash('Complaint resolved.', 'success')
+    return redirect(url_for('delivery.driver_complaints_list'))
 
 
 # ── Admin: Manual Driver Assignment ──────────────────────────────────────────

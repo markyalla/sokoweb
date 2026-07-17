@@ -338,6 +338,30 @@ class DriverCashoutRequest(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class DriverComplaint(db.Model):
+    __bind_key__ = 'delivery'
+    __tablename__ = 'driver_complaints'
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    order_id = db.Column(UUID(as_uuid=True), nullable=False)  # points into orders or delivery_orders, per order_source
+    order_source = db.Column(db.String(30), nullable=False)  # sokoshopper | sokodelivery
+    complainant_user_id = db.Column(UUID(as_uuid=True), nullable=False)
+    against_driver_id = db.Column(UUID(as_uuid=True), nullable=False)
+    category = db.Column(db.String(100))
+    description = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), default='open')  # open, in_review, resolved, dismissed
+    driver_at_fault = db.Column(db.Boolean)
+    resolution_notes = db.Column(db.Text)
+    resolved_by = db.Column(UUID(as_uuid=True))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    resolved_at = db.Column(db.DateTime)
+
+    def get_complainant(self):
+        return User.query.get(self.complainant_user_id)
+
+    def get_driver_user(self):
+        return User.query.get(self.against_driver_id)
+
+
 class ShopCashoutRequest(db.Model):
     __bind_key__ = 'shopper'
     __tablename__ = 'shop_cashout_requests'

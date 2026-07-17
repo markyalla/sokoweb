@@ -67,6 +67,7 @@ def create_app():
     from app.routes.finance import finance_bp
     from app.routes.store_owner import store_owner_bp
     from app.routes.sokoindex import sokoindex_bp
+    from app.routes.drivers import drivers_bp
 
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(shopper_bp, url_prefix='/shopper')
@@ -77,6 +78,7 @@ def create_app():
     app.register_blueprint(finance_bp, url_prefix='/finance')
     app.register_blueprint(store_owner_bp, url_prefix='/store')
     app.register_blueprint(sokoindex_bp, url_prefix='/sokoindex')
+    app.register_blueprint(drivers_bp, url_prefix='/drivers')
 
     # Create any missing tables (e.g. shop_cashout_requests, driver_cashout_requests)
     # that Go's GORM AutoMigrate would normally create on next restart.

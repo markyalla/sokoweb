@@ -59,6 +59,12 @@
                 <a href="{{ url_for('delivery.orders_list') }}" class="nav-link {% if 'delivery' in request.endpoint %}active{% endif %}">
                     <i class="bi bi-truck"></i> Deliveries
                 </a>
+                <a href="{{ url_for('drivers.drivers_list') }}" class="nav-link {% if request.endpoint and request.endpoint.startswith('drivers.') %}active{% endif %}">
+                    <i class="bi bi-person-badge"></i> Drivers
+                </a>
+                <a href="{{ url_for('delivery.driver_complaints_list') }}" class="nav-link {% if request.endpoint == 'delivery.driver_complaints_list' %}active{% endif %}">
+                    <i class="bi bi-shield-exclamation"></i> Driver Complaints
+                </a>
                 {% endif %}
                 {% if is_super %}
                 <a href="{{ url_for('dashboard.active_deliveries') }}" class="nav-link {% if request.endpoint == 'dashboard.active_deliveries' %}active{% endif %}">
