@@ -5,6 +5,7 @@ from app.routes import get_relative_path
 from math import radians, cos, sin, asin, sqrt
 import requests
 from sqlalchemy.orm import joinedload
+from sqlalchemy.exc import IntegrityError
 import os
 import uuid
 
@@ -340,29 +341,45 @@ def assign_driver(order_id):
     from datetime import datetime
     now = datetime.utcnow()
 
-    # Update main Order record (column is String(36))
-    order.driver_user_id    = driver_id_str
-    order.status            = 'assigned_to_driver'
-    order.driver_assigned_at = now  # starts the 5-minute pickup countdown
+    def apply_assignment(existing_assignment):
+        # Update main Order record (column is String(36))
+        order.driver_user_id    = driver_id_str
+        order.status            = 'assigned_to_driver'
+        order.driver_assigned_at = now  # starts the 5-minute pickup countdown
 
-    # Sync with standalone OrderDelivery tracking record
-    if not assignment:
-        assignment = OrderDelivery(
-            order_id=order.id,
-            driver_id=driver_uuid,
-            status='assigned',
-        )
-        db.session.add(assignment)
-    else:
-        assignment.driver_id = driver_uuid
-        assignment.status    = 'assigned'
+        # Sync with standalone OrderDelivery tracking record
+        if not existing_assignment:
+            db.session.add(OrderDelivery(
+                order_id=order.id,
+                driver_id=driver_uuid,
+                status='assigned',
+            ))
+        else:
+            existing_assignment.driver_id = driver_uuid
+            existing_assignment.status    = 'assigned'
 
-    # Mark driver unavailable until the delivery is complete
-    dp = DriverProfile.query.filter_by(user_id=driver_uuid).first()
-    if dp:
-        dp.is_available = False
+        # Mark driver unavailable until the delivery is complete
+        dp = DriverProfile.query.filter_by(user_id=driver_uuid).first()
+        if dp:
+            dp.is_available = False
 
-    db.session.commit()
+    apply_assignment(assignment)
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # order_deliveries.order_id is unique — a near-simultaneous second
+        # submit (e.g. a double-click on Assign) can race this one: both
+        # requests see no existing row, both try to INSERT, and the loser
+        # hits the unique constraint. Retry once as an update instead of
+        # bubbling up a 500 — the row now exists because the winner just
+        # committed it.
+        db.session.rollback()
+        order = Order.query.get_or_404(order_id)
+        assignment = OrderDelivery.query.filter_by(order_id=order.id).first()
+        apply_assignment(assignment)
+        db.session.commit()
+
     flash('Driver assigned successfully!', 'success')
     return redirect(request.referrer)
 

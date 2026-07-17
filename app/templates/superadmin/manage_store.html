@@ -379,7 +379,7 @@
                       data-assigned-at="{{ order.driver_assigned_at.isoformat() }}">⏱ …</span>
               </div>
               {% endif %}
-              <form action="{{ url_for('shopper.assign_driver', order_id=order.id) }}" method="POST" class="d-flex gap-1">
+              <form action="{{ url_for('shopper.assign_driver', order_id=order.id) }}" method="POST" class="d-flex gap-1 assign-driver-form">
                 <select name="driver_id" class="form-select form-select-sm" style="font-size:0.76rem;">
                   {% if order.driver_user_id %}
                   <option value="{{ order.driver_user_id }}" selected>
@@ -549,6 +549,15 @@ if (document.querySelectorAll('.pickup-timer').length > 0) {
   updatePickupTimers();
   setInterval(updatePickupTimers, 1000);
 }
+
+// Prevent a double-click on "Assign" from firing two POSTs at once — that
+// race could otherwise hit the order_deliveries unique constraint server-side.
+document.querySelectorAll('.assign-driver-form').forEach(form => {
+  form.addEventListener('submit', () => {
+    const btn = form.querySelector('button[type="submit"]');
+    if (btn) btn.disabled = true;
+  });
+});
 
 // Shared with the auto-refresh timer below — true for the whole upload
 // request, not just while the file input has focus. Clicking "Upload" moves
