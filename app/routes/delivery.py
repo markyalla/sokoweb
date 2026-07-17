@@ -336,6 +336,17 @@ def assign_driver_manual(order_id):
                   .order_by(desc(DeliveryAssignment.created_at))
                   .first())
 
+    # Idempotent: re-submitting the same driver (a double-click on Assign, or
+    # the admin re-assigning after not noticing the flash message on a page
+    # refresh) must not re-touch driver_id/status — a DB trigger watches that
+    # column pair and pushes a "new delivery" notification to the driver's
+    # phone, so a no-op write here would fire a duplicate push for an
+    # assignment that already exists.
+    if (assignment and assignment.status == 'assigned'
+            and str(assignment.driver_id) == driver_id):
+        flash('Driver is already assigned to this order.', 'info')
+        return redirect(url_for('delivery.order_detail', order_id=order_id))
+
     if assignment and assignment.status in ('pending', 'broadcast'):
         # Upgrade the existing broadcast/pending assignment to this driver
         assignment.driver_id = driver_id
@@ -448,6 +459,15 @@ def assign_nearest_driver(order_id):
                   .filter_by(order_id=str(order_id))
                   .order_by(desc(DeliveryAssignment.created_at))
                   .first())
+
+    # Idempotent: re-clicking "Assign Nearest" when the nearest driver hasn't
+    # changed must not re-touch driver_id/status — a DB trigger watches that
+    # column pair and pushes a "new delivery" notification to the driver's
+    # phone, so a no-op write here would fire a duplicate push.
+    if (assignment and assignment.status == 'assigned'
+            and str(assignment.driver_id) == str(nearest.user_id)):
+        flash('Nearest driver is already assigned to this order.', 'info')
+        return redirect(url_for('delivery.order_detail', order_id=order_id))
 
     if assignment and assignment.status in ('pending', 'broadcast'):
         assignment.driver_id = nearest.user_id

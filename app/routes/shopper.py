@@ -323,7 +323,20 @@ def assign_driver(order_id):
         return redirect(request.referrer or url_for('shopper.index'))
 
     order = Order.query.get_or_404(order_id)
-    
+    assignment = OrderDelivery.query.filter_by(order_id=order.id).first()
+
+    # Idempotent: re-submitting the same driver (a double-click on Assign, or
+    # the admin re-assigning after not noticing the flash message on a page
+    # refresh) must not re-touch driver_id/status — a DB trigger watches that
+    # column pair and pushes a "new delivery" notification to the driver's
+    # phone, so a no-op write here would fire a duplicate push, and would also
+    # unfairly reset the 5-minute pickup countdown below.
+    if (assignment and str(assignment.driver_id) == driver_id_str
+            and assignment.status == 'assigned'
+            and order.driver_user_id == driver_id_str):
+        flash('Driver is already assigned to this order.', 'info')
+        return redirect(request.referrer)
+
     from datetime import datetime
     now = datetime.utcnow()
 
@@ -333,7 +346,6 @@ def assign_driver(order_id):
     order.driver_assigned_at = now  # starts the 5-minute pickup countdown
 
     # Sync with standalone OrderDelivery tracking record
-    assignment = OrderDelivery.query.filter_by(order_id=order.id).first()
     if not assignment:
         assignment = OrderDelivery(
             order_id=order.id,

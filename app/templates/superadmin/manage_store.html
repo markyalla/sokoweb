@@ -550,6 +550,12 @@ if (document.querySelectorAll('.pickup-timer').length > 0) {
   setInterval(updatePickupTimers, 1000);
 }
 
+// Shared with the auto-refresh timer below — true for the whole upload
+// request, not just while the file input has focus. Clicking "Upload" moves
+// focus to the button (not one of input/textarea/select), so the old
+// focus-only pause let a reload land mid-upload and lose the file picked.
+let uploadInFlight = false;
+
 // Image upload handler
 document.addEventListener('click', async (e) => {
   if (!e.target.classList.contains('uploadBtn')) return;
@@ -568,6 +574,7 @@ document.addEventListener('click', async (e) => {
   const formData = new FormData();
   formData.append('file', fileInput.files[0]);
   formData.append('bucket', bucket);
+  uploadInFlight = true;
   try {
     if (status) status.textContent = 'Uploading…';
     btn.disabled = true;
@@ -590,10 +597,10 @@ document.addEventListener('click', async (e) => {
     }
   } catch (err) {
     if (status) status.innerHTML = `<span class="text-danger">Network error: ${err.message}</span>`;
-  } finally { btn.disabled = false; }
+  } finally { btn.disabled = false; uploadInFlight = false; }
 });
 
-// ── Auto-refresh (pauses while a form field is focused) ──────────────
+// ── Auto-refresh (pauses while a form field is focused, or an upload is running) ──
 (function () {
   const SECONDS = 30;
   let paused = false;
@@ -606,7 +613,7 @@ document.addEventListener('click', async (e) => {
 
   let t = SECONDS;
   setInterval(() => {
-    if (paused) { t = SECONDS; badge.textContent = '↻ paused'; return; }
+    if (paused || uploadInFlight) { t = SECONDS; badge.textContent = uploadInFlight ? '↻ uploading…' : '↻ paused'; return; }
     t--;
     badge.textContent = `↻ ${t}s`;
     if (t <= 0) window.location.reload();

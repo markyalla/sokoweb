@@ -169,6 +169,19 @@
                 overlay.classList.remove('show');
             });
         }
+
+        // Site-wide: disable a form's submit button the instant it's submitted,
+        // so a slow request (or an impatient double-click, e.g. on "Assign
+        // driver") can't fire the same POST twice. Actions like driver
+        // assignment are watched by a DB trigger that pushes a notification to
+        // the driver's phone, so a duplicate submit means a duplicate push.
+        document.addEventListener('submit', (e) => {
+            const btn = e.target.querySelector('button[type="submit"], input[type="submit"]');
+            if (btn && !btn.disabled) {
+                btn.disabled = true;
+                setTimeout(() => { btn.disabled = false; }, 8000); // safety unstick if navigation stalls
+            }
+        });
     </script>
 
     {% if current_user.is_authenticated %}
