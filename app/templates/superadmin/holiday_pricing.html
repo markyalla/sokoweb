@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .mod-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.09em; font-weight: 800; color: #FF8000; border-left: 3px solid #FF8000; padding-left: 10px; margin: 0 0 14px; }
+  .hp-card { background: #fff; border-radius: 14px; box-shadow: 0 1px 5px rgba(0,0,0,0.07); padding: 24px; max-width: 640px; }
+  .hp-badge { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700; padding: 4px 10px; border-radius: 20px; }
+  .hp-holiday-list { display: flex; flex-wrap: wrap; gap: 8px; }
+  .hp-holiday-chip { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 6px 10px; font-size: 0.78rem; color: #4b5563; }
+</style>
+
+<div class="mod-label">Pricing</div>
+<h5 class="fw-bold mb-1">Holiday Pricing — Ghana</h5>
+<p class="text-muted mb-4" style="font-size:0.85rem;max-width:640px;">
+  When enabled, item prices and delivery fees are automatically increased by the
+  percentage below on Ghana's public holidays &mdash; demand (and orders) tends to
+  spike on these days. Only stores whose country is set to <strong>Ghana</strong> are affected.
+  Customers see a "Holiday pricing" label wherever the surcharge applies.
+</p>
+
+<div class="hp-card">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <span class="fw-bold">🇬🇭 Ghana</span>
+    {% if setting.enabled %}
+    <span class="hp-badge bg-success-subtle text-success">Active — +{{ '%.0f'|format(setting.surcharge_pct) }}%</span>
+    {% else %}
+    <span class="hp-badge bg-secondary-subtle text-secondary">Disabled</span>
+    {% endif %}
+  </div>
+
+  <form method="POST" action="{{ url_for('pricing.update_holiday_pricing') }}">
+    <div class="mb-3 form-check form-switch">
+      <input class="form-check-input" type="checkbox" role="switch" id="enabled" name="enabled"
+             {% if setting.enabled %}checked{% endif %}>
+      <label class="form-check-label fw-semibold" for="enabled">Enable holiday surge pricing</label>
+    </div>
+
+    <div class="mb-3" style="max-width:220px;">
+      <label for="surcharge_pct" class="form-label small fw-semibold text-muted">Surcharge percentage</label>
+      <div class="input-group">
+        <input type="number" step="1" min="0" max="100" name="surcharge_pct" id="surcharge_pct"
+               class="form-control" value="{{ '%.0f'|format(setting.surcharge_pct) }}" required>
+        <span class="input-group-text">%</span>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-warning fw-semibold">
+      <i class="bi bi-check-circle me-1"></i>Save
+    </button>
+  </form>
+
+  <hr class="my-4">
+
+  <div class="small fw-semibold text-muted mb-2 text-uppercase" style="font-size:0.68rem;letter-spacing:0.06em;">
+    Applies on these fixed-date public holidays
+  </div>
+  <div class="hp-holiday-list mb-2">
+    {% for h in holidays %}
+    <span class="hp-holiday-chip">{{ h }}</span>
+    {% endfor %}
+  </div>
+  <p class="text-muted small mb-0" style="font-size:0.75rem;">
+    Movable holidays (Eid, Easter) aren't included yet — they shift date every year
+    and would need a maintained lookup table.
+  </p>
+</div>
+{% endblock %}

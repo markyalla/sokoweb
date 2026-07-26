@@ -94,6 +94,9 @@
                 <a href="{{ url_for('finance.track_expenses') }}" class="nav-link {% if 'finance' in request.endpoint %}active{% endif %}">
                     <i class="bi bi-bar-chart-line"></i> Track Expenses
                 </a>
+                <a href="{{ url_for('pricing.holiday_pricing') }}" class="nav-link {% if request.endpoint and request.endpoint.startswith('pricing.') %}active{% endif %}">
+                    <i class="bi bi-tag"></i> Holiday Pricing
+                </a>
                 <a href="#" class="nav-link"><i class="bi bi-wallet2"></i> Bank</a>
                 <a href="#" class="nav-link"><i class="bi bi-cash-stack"></i> Loans</a>
                 {% endif %}
@@ -231,6 +234,61 @@
                             });
                         }
                         knownOnline = nowOnline;
+                    })
+                    .catch(() => {});
+            }
+
+            poll();
+            setInterval(poll, 15000);
+        })();
+
+        // Polls for new shopper orders / parcel deliveries and toasts
+        // admins & superadmins so they can attend to them quickly. Only
+        // announces items new since the LAST poll (not on page load).
+        (function () {
+            let knownOrders = null;
+            let knownDeliveries = null;
+
+            function showToast(message) {
+                const container = document.getElementById('driverToastContainer');
+                const el = document.createElement('div');
+                el.className = 'toast align-items-center text-white bg-primary border-0';
+                el.setAttribute('role', 'alert');
+                el.innerHTML = `
+                    <div class="d-flex">
+                        <div class="toast-body">${message}</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                    </div>`;
+                container.appendChild(el);
+                const toast = new bootstrap.Toast(el, { delay: 8000 });
+                toast.show();
+                el.addEventListener('hidden.bs.toast', () => el.remove());
+            }
+
+            function poll() {
+                fetch("{{ url_for('dashboard.api_new_activity') }}")
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => {
+                        if (!data) return;
+                        const nowOrders = new Set(data.orders.map(o => o.id));
+                        const nowDeliveries = new Set(data.deliveries.map(d => d.id));
+
+                        if (knownOrders !== null) {
+                            data.orders.forEach(o => {
+                                if (!knownOrders.has(o.id)) {
+                                    showToast(`🛒 You have a new order <strong>${o.ref}</strong> (GHS ${o.amount.toFixed(2)})`);
+                                }
+                            });
+                        }
+                        if (knownDeliveries !== null) {
+                            data.deliveries.forEach(d => {
+                                if (!knownDeliveries.has(d.id)) {
+                                    showToast(`📦 You have a new delivery <strong>${d.ref}</strong> (GHS ${d.fee.toFixed(2)})`);
+                                }
+                            });
+                        }
+                        knownOrders = nowOrders;
+                        knownDeliveries = nowDeliveries;
                     })
                     .catch(() => {});
             }

@@ -374,6 +374,20 @@ class ShopCashoutRequest(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+class HolidayPricingSetting(db.Model):
+    """Per-country holiday surge pricing, editable from the superadmin panel
+    and read by the Go backend (sokoApp) at request time. One row per
+    country — today only Ghana exists; other African markets can get their
+    own row (and their own holiday calendar in code) later."""
+    __bind_key__ = 'shopper'
+    __tablename__ = 'holiday_pricing_settings'
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    country_code = db.Column(db.String(2), nullable=False, unique=True)
+    country_name = db.Column(db.String(100), nullable=False)
+    surcharge_pct = db.Column(db.Numeric(5, 2), nullable=False, default=0)
+    enabled = db.Column(db.Boolean, default=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 # ----------------------------------------------------------------
 # BANK DATABASE (sokobank)
 # ----------------------------------------------------------------

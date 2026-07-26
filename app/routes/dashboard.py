@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, g, redirect, url_for, jsonify, fla
 from app.routes.models import (User, Order, DeliveryAssignment, Store, Product,
                                 DriverProfile, Payment, SusuGroup, KYCSubmission,
                                 Delivery, Category)
+from app.routes import analytics
 from app import db
 from sqlalchemy import func, cast, String
 from datetime import datetime
@@ -109,6 +110,17 @@ def index():
             'susu_total','susu_active',
         ]}
 
+    charts = {}
+    if show_shopper:
+        try:
+            charts = analytics.dashboard_charts()
+            if is_superadmin:
+                charts['top_stores'] = analytics.top_stores()
+        except Exception as e:
+            print(f"Dashboard Charts Error: {e}")
+            import traceback; traceback.print_exc()
+            charts = {}
+
     return render_template('superadmin/dashboard.html',
                            stats=stats,
                            recent_orders=recent_orders,
@@ -117,7 +129,8 @@ def index():
                            show_account=show_account,
                            show_shopper=show_shopper,
                            show_delivery=show_delivery,
-                           show_susu=show_susu)
+                           show_susu=show_susu,
+                           charts=charts)
 
 
 @dashboard_bp.route('/active-deliveries')
@@ -194,6 +207,36 @@ def active_deliveries():
         shopper_count=len(orders),
         parcel_count=len(assignments),
     )
+
+
+@dashboard_bp.route('/api/new-activity')
+def api_new_activity():
+    """Lightweight JSON polled from base.html to toast admins/superadmins the
+    moment a new shopper order or parcel delivery comes in — same rationale
+    as api_drivers_online: no websocket/push channel in this app, so polling
+    is the pragmatic way to surface it. Scoped to what each admin can already
+    see (sokoshopper_admin / sokodelivery_admin / superadmin)."""
+    if not g.user:
+        return jsonify({'orders': [], 'deliveries': []}), 401
+
+    roles = [r.role for r in g.user.roles]
+    is_superadmin = 'superadmin' in roles
+    show_shopper  = is_superadmin or 'sokoshopper_admin' in roles
+    show_delivery = is_superadmin or 'sokodelivery_admin' in roles
+
+    orders = []
+    if show_shopper:
+        rows = Order.query.order_by(Order.created_at.desc()).limit(10).all()
+        orders = [{'id': str(o.id), 'ref': f"FD-{str(o.id)[:8].upper()}",
+                   'amount': float(o.total_amount or 0)} for o in rows]
+
+    deliveries = []
+    if show_delivery:
+        rows = DeliveryAssignment.query.order_by(DeliveryAssignment.created_at.desc()).limit(10).all()
+        deliveries = [{'id': str(a.id), 'ref': f"PD-{str(a.id)[:8].upper()}",
+                       'fee': float(a.delivery_fee or 0)} for a in rows]
+
+    return jsonify({'orders': orders, 'deliveries': deliveries})
 
 
 @dashboard_bp.route('/api/drivers/online')

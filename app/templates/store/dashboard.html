@@ -138,6 +138,49 @@
     </div>
 </div>
 
+{% if charts %}
+<!-- Order analytics -->
+<h6 class="fw-bold mb-3 mt-1">Order Analytics</h6>
+<div class="row g-3 mb-4">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white py-3"><span class="fw-semibold">Top Items Ordered</span></div>
+            <div class="card-body">
+                {% if charts.top_items %}
+                <canvas id="chartTopItems" height="220"></canvas>
+                {% else %}
+                <div class="text-center py-4 text-muted small"><i class="bi bi-bag d-block fs-3 mb-1"></i>No orders yet</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white py-3"><span class="fw-semibold">Orders by Hour of Day</span></div>
+            <div class="card-body"><canvas id="chartByHour" height="220"></canvas></div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white py-3"><span class="fw-semibold">Orders by Day of Week</span></div>
+            <div class="card-body"><canvas id="chartByWeekday" height="220"></canvas></div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white py-3"><span class="fw-semibold">Weekday vs Weekend</span></div>
+            <div class="card-body"><canvas id="chartWeekend" height="220"></canvas></div>
+        </div>
+    </div>
+    <div class="col-lg-3 col-6">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white py-3"><span class="fw-semibold">Holiday vs Normal</span></div>
+            <div class="card-body"><canvas id="chartHoliday" height="220"></canvas></div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <!-- Recent orders -->
 <div class="card border-0 shadow-sm">
     <div class="card-header bg-white d-flex align-items-center justify-content-between py-3">
@@ -195,4 +238,95 @@
         {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+{% if charts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+(function () {
+  const weekdayPalette = ['#f97316','#fb923c','#fdba74','#fed7aa','#2563eb','#7c3aed','#a855f7'];
+
+  {% if charts.top_items %}
+  new Chart(document.getElementById('chartTopItems'), {
+    type: 'bar',
+    data: {
+      labels: {{ charts.top_items | map(attribute='name') | list | tojson }},
+      datasets: [{
+        label: 'Quantity ordered',
+        data: {{ charts.top_items | map(attribute='quantity') | list | tojson }},
+        backgroundColor: '#16a34a',
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+  {% endif %}
+
+  new Chart(document.getElementById('chartByHour'), {
+    type: 'line',
+    data: {
+      labels: [{% for h in range(24) %}'{{ '%02d'|format(h) }}:00'{% if not loop.last %},{% endif %}{% endfor %}],
+      datasets: [{
+        label: 'Orders',
+        data: {{ charts.orders_by_hour | tojson }},
+        borderColor: '#f97316',
+        backgroundColor: 'rgba(249,115,22,0.15)',
+        fill: true,
+        tension: 0.35,
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+
+  new Chart(document.getElementById('chartByWeekday'), {
+    type: 'bar',
+    data: {
+      labels: {{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] | tojson }},
+      datasets: [{
+        label: 'Orders',
+        data: {{ charts.orders_by_weekday | tojson }},
+        backgroundColor: weekdayPalette,
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+
+  new Chart(document.getElementById('chartWeekend'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Weekday', 'Weekend'],
+      datasets: [{
+        data: [{{ charts.weekend_split.weekday }}, {{ charts.weekend_split.weekend }}],
+        backgroundColor: ['#f97316', '#2563eb'],
+      }]
+    },
+    options: { plugins: { legend: { position: 'bottom' } } }
+  });
+
+  new Chart(document.getElementById('chartHoliday'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Normal Day', 'Holiday'],
+      datasets: [{
+        data: [{{ charts.holiday_split.normal }}, {{ charts.holiday_split.holiday }}],
+        backgroundColor: ['#16a34a', '#dc2626'],
+      }]
+    },
+    options: { plugins: { legend: { position: 'bottom' } } }
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}

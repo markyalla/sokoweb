@@ -173,6 +173,167 @@
 </div>
 {% endif %}
 
+{% if show_shopper and charts %}
+<!-- ── Order Analytics ────────────────────────────────────────────────── -->
+<div class="mod-label">Order Analytics</div>
+<div class="row g-4 mb-2">
+  {% if is_superadmin and charts.top_stores %}
+  <div class="col-lg-6">
+    <div class="sec-card p-3">
+      <span class="sec-title d-block mb-2">Top Stores by Orders</span>
+      <canvas id="chartTopStores" height="220"></canvas>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="col-lg-6">
+    <div class="sec-card p-3">
+      <span class="sec-title d-block mb-2">Top Items Ordered</span>
+      {% if charts.top_items %}
+      <canvas id="chartTopItems" height="220"></canvas>
+      {% else %}
+      <div class="text-center py-4 text-muted small"><i class="bi bi-bag d-block fs-3 mb-1"></i>No orders yet</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="sec-card p-3">
+      <span class="sec-title d-block mb-2">Orders by Hour of Day</span>
+      <canvas id="chartByHour" height="220"></canvas>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="sec-card p-3">
+      <span class="sec-title d-block mb-2">Orders by Day of Week</span>
+      <canvas id="chartByWeekday" height="220"></canvas>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="sec-card p-3">
+      <span class="sec-title d-block mb-2">Weekday vs Weekend</span>
+      <canvas id="chartWeekend" height="220"></canvas>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="sec-card p-3">
+      <span class="sec-title d-block mb-2">Public Holiday vs Normal Day</span>
+      <canvas id="chartHoliday" height="220"></canvas>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script>
+(function () {
+  const weekdayPalette = ['#FF8000','#f97316','#fb923c','#fdba74','#2563eb','#7c3aed','#a855f7'];
+
+  {% if is_superadmin and charts.top_stores %}
+  new Chart(document.getElementById('chartTopStores'), {
+    type: 'bar',
+    data: {
+      labels: {{ charts.top_stores | map(attribute='store') | list | tojson }},
+      datasets: [{
+        label: 'Orders',
+        data: {{ charts.top_stores | map(attribute='order_count') | list | tojson }},
+        backgroundColor: '#FF8000',
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+  {% endif %}
+
+  {% if charts.top_items %}
+  new Chart(document.getElementById('chartTopItems'), {
+    type: 'bar',
+    data: {
+      labels: {{ charts.top_items | map(attribute='name') | list | tojson }},
+      datasets: [{
+        label: 'Quantity ordered',
+        data: {{ charts.top_items | map(attribute='quantity') | list | tojson }},
+        backgroundColor: '#16a34a',
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+  {% endif %}
+
+  new Chart(document.getElementById('chartByHour'), {
+    type: 'line',
+    data: {
+      labels: [{% for h in range(24) %}'{{ '%02d'|format(h) }}:00'{% if not loop.last %},{% endif %}{% endfor %}],
+      datasets: [{
+        label: 'Orders',
+        data: {{ charts.orders_by_hour | tojson }},
+        borderColor: '#FF8000',
+        backgroundColor: 'rgba(255,128,0,0.15)',
+        fill: true,
+        tension: 0.35,
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+
+  new Chart(document.getElementById('chartByWeekday'), {
+    type: 'bar',
+    data: {
+      labels: {{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] | tojson }},
+      datasets: [{
+        label: 'Orders',
+        data: {{ charts.orders_by_weekday | tojson }},
+        backgroundColor: weekdayPalette,
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+
+  new Chart(document.getElementById('chartWeekend'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Weekday', 'Weekend'],
+      datasets: [{
+        data: [{{ charts.weekend_split.weekday }}, {{ charts.weekend_split.weekend }}],
+        backgroundColor: ['#FF8000', '#2563eb'],
+      }]
+    },
+    options: { plugins: { legend: { position: 'bottom' } } }
+  });
+
+  new Chart(document.getElementById('chartHoliday'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Normal Day', 'Public Holiday'],
+      datasets: [{
+        data: [{{ charts.holiday_split.normal }}, {{ charts.holiday_split.holiday }}],
+        backgroundColor: ['#16a34a', '#dc2626'],
+      }]
+    },
+    options: { plugins: { legend: { position: 'bottom' } } }
+  });
+})();
+</script>
+{% endif %}
+
 <!-- ── Recent Activity ────────────────────────────────────────────────── -->
 <div class="row g-4">
   {% if show_shopper %}

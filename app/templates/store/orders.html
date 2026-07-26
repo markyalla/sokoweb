@@ -102,6 +102,11 @@
                                 <span class="badge bg-info text-dark">Paid — New</span>
                             {% elif s == 'preparing' %}
                                 <span class="badge bg-warning text-dark">Preparing</span>
+                                {% if o.estimated_prep_mins %}
+                                <div class="small text-muted mt-1">
+                                    <i class="bi bi-clock"></i> Ready in ~{{ o.estimated_prep_mins }} min
+                                </div>
+                                {% endif %}
                             {% elif s == 'ready_for_pickup' %}
                                 <span class="badge bg-primary">Ready for Pickup</span>
                             {% elif s in ['assigned_to_driver','picked_up','in_transit'] %}
@@ -117,20 +122,34 @@
                         <td>
                             {% if o.status == 'payment_confirmed' %}
                             <form method="POST" action="{{ url_for('store_owner.update_order_status', order_id=o.id) }}"
-                                  class="d-inline">
+                                  class="d-flex align-items-center gap-2">
                                 <input type="hidden" name="status" value="preparing">
-                                <button type="submit" class="btn btn-sm btn-warning fw-semibold">
+                                <input type="number" name="estimated_prep_mins" min="1" max="180"
+                                       placeholder="mins" required
+                                       class="form-control form-control-sm" style="width: 70px;">
+                                <button type="submit" class="btn btn-sm btn-warning fw-semibold text-nowrap">
                                     <i class="bi bi-fire me-1"></i>Start Preparing
                                 </button>
                             </form>
                             {% elif o.status == 'preparing' %}
-                            <form method="POST" action="{{ url_for('store_owner.update_order_status', order_id=o.id) }}"
-                                  class="d-inline">
-                                <input type="hidden" name="status" value="ready_for_pickup">
-                                <button type="submit" class="btn btn-sm btn-primary fw-semibold">
-                                    <i class="bi bi-bag-check me-1"></i>Mark Ready
-                                </button>
-                            </form>
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <form method="POST" action="{{ url_for('store_owner.update_order_eta', order_id=o.id) }}"
+                                      class="d-flex align-items-center gap-2">
+                                    <input type="number" name="estimated_prep_mins" min="1" max="180"
+                                           value="{{ o.estimated_prep_mins or '' }}" placeholder="mins" required
+                                           class="form-control form-control-sm" style="width: 70px;">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary text-nowrap">
+                                        <i class="bi bi-clock-history me-1"></i>Update ETA
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('store_owner.update_order_status', order_id=o.id) }}"
+                                      class="d-inline">
+                                    <input type="hidden" name="status" value="ready_for_pickup">
+                                    <button type="submit" class="btn btn-sm btn-primary fw-semibold text-nowrap">
+                                        <i class="bi bi-bag-check me-1"></i>Mark Ready
+                                    </button>
+                                </form>
+                            </div>
                             {% else %}
                             <span class="text-muted small">—</span>
                             {% endif %}

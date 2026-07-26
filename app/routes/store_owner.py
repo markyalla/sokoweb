@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, g, redirect, url_for, request, flash
 from app.routes.models import Store, Product, Order, ShopCashoutRequest, User
+from app.routes import analytics
 from app import db
 
 store_owner_bp = Blueprint('store_owner', __name__)
@@ -63,6 +64,13 @@ def dashboard():
         for u in User.query.filter(User.id.in_(cust_ids)).all()
     } if cust_ids else {}
 
+    try:
+        charts = analytics.dashboard_charts(store_id=store.id)
+    except Exception as e:
+        print(f"Store Dashboard Charts Error: {e}")
+        import traceback; traceback.print_exc()
+        charts = {}
+
     return render_template('store/dashboard.html',
         store=store,
         active_count=len(active_orders),
@@ -74,6 +82,7 @@ def dashboard():
         pending_cashout=pending_cashout,
         recent_orders=recent_orders,
         customers_map=customers_map,
+        charts=charts,
     )
 
 
@@ -141,12 +150,49 @@ def update_order_status(order_id):
         flash('Invalid status update.', 'danger')
         return redirect(url_for('store_owner.orders'))
 
+    from datetime import datetime
+
+    if new_status == 'preparing':
+        prep_mins = request.form.get('estimated_prep_mins', '').strip()
+        if not prep_mins.isdigit() or not (1 <= int(prep_mins) <= 180):
+            flash('Enter an estimated prep time between 1 and 180 minutes.', 'danger')
+            return redirect(url_for('store_owner.orders', tab='active'))
+        order.estimated_prep_mins = int(prep_mins)
+        order.accepted_at = datetime.utcnow()
+
     order.status = new_status
     if new_status == 'ready_for_pickup':
-        from datetime import datetime
         order.ready_at = datetime.utcnow()
     db.session.commit()
     flash(f'Order #{str(order.id)[:8]} updated to {new_status.replace("_", " ").title()}.', 'success')
+    return redirect(url_for('store_owner.orders', tab='active'))
+
+
+# ── Update estimated prep time (while already preparing) ─────────────────────
+
+@store_owner_bp.route('/orders/<uuid:order_id>/eta', methods=['POST'])
+def update_order_eta(order_id):
+    store, err = _require_owner()
+    if err:
+        return err
+
+    order = Order.query.get_or_404(order_id)
+    if order.store_id != str(store.id):
+        flash('Unauthorized.', 'danger')
+        return redirect(url_for('store_owner.orders'))
+
+    if order.status != 'preparing':
+        flash('Can only update the estimate while an order is being prepared.', 'danger')
+        return redirect(url_for('store_owner.orders', tab='active'))
+
+    prep_mins = request.form.get('estimated_prep_mins', '').strip()
+    if not prep_mins.isdigit() or not (1 <= int(prep_mins) <= 180):
+        flash('Enter an estimated prep time between 1 and 180 minutes.', 'danger')
+        return redirect(url_for('store_owner.orders', tab='active'))
+
+    order.estimated_prep_mins = int(prep_mins)
+    db.session.commit()
+    flash(f'Updated estimated time for order #{str(order.id)[:8]}.', 'success')
     return redirect(url_for('store_owner.orders', tab='active'))
 
 
