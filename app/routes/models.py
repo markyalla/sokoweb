@@ -16,6 +16,7 @@ class User(db.Model):
     phone_number = db.Column(db.String(20), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     profile_image_url = db.Column(db.String(255))
+    country = db.Column(db.String(100))  # from the phone country picker at signup, e.g. "Ghana"
     gender = db.Column(db.String(50))
     date_of_birth = db.Column(db.DateTime)
     is_email_verified = db.Column(db.Boolean, default=False)

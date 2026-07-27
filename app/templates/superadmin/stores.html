@@ -136,12 +136,14 @@
             </div>
             <div class="col-md-6">
               <label class="form-label small fw-bold text-uppercase text-muted">Owner *</label>
-              <select name="owner_user_id" class="form-select" required>
+              <select name="owner_user_id" id="ownerSelect" class="form-select" required
+                      onchange="const o=this.options[this.selectedIndex]; document.getElementById('ownerCountryHint').textContent = o.value ? ('Store country: ' + (o.dataset.country || 'Ghana') + ' (from owner\'s account)') : '';">
                 <option value="" disabled selected>Select owner</option>
                 {% for u in users %}
-                <option value="{{ u.id }}">{{ u.full_name }}</option>
+                <option value="{{ u.id }}" data-country="{{ u.country or 'Ghana' }}">{{ u.full_name }}</option>
                 {% endfor %}
               </select>
+              <div id="ownerCountryHint" class="form-text"></div>
             </div>
             <div class="col-md-6">
               <label class="form-label small fw-bold text-uppercase text-muted">Email</label>

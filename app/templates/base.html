@@ -200,63 +200,28 @@
     {% if current_user.is_authenticated %}
     <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;" id="driverToastContainer"></div>
     <script>
-        // Polls for drivers going online and toasts the admin — there's no
-        // websocket/push channel in this app, so polling is the pragmatic
-        // way to surface it without a full page reload. Only announces
-        // drivers newly online since the LAST poll (not on page load).
+        // Live admin notifications (new order / new delivery / driver online).
+        //
+        // sokoApp already runs a websocket hub (internal/ws) for pushing
+        // driver-location and order-status updates to the mobile app — this
+        // connects the admin dashboard to that same hub, using the JWT
+        // SokoWeb already mints for calling the Go API (BACKEND_JWT), rather
+        // than standing up a separate Flask-side websocket server. The Go
+        // hub filters by the JWT's "roles" claim (BroadcastToRoles) so only
+        // connected superadmin/sokoshopper_admin/sokodelivery_admin sessions
+        // receive these events.
+        //
+        // Falls back to the old polling behaviour if the socket can't be
+        // established (e.g. a reverse proxy that doesn't forward WS
+        // upgrades) — the fallback hits SokoWeb's own endpoints over the
+        // normal session cookie, so it keeps working even after the
+        // embedded JWT (2hr expiry) goes stale and reconnection stops
+        // succeeding on a long-lived tab.
         (function () {
-            let knownOnline = null; // null = first poll hasn't landed yet
-
-            function showToast(message) {
+            function showToast(message, bgClass) {
                 const container = document.getElementById('driverToastContainer');
                 const el = document.createElement('div');
-                el.className = 'toast align-items-center text-white bg-success border-0';
-                el.setAttribute('role', 'alert');
-                el.innerHTML = `
-                    <div class="d-flex">
-                        <div class="toast-body">${message}</div>
-                        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-                    </div>`;
-                container.appendChild(el);
-                const toast = new bootstrap.Toast(el, { delay: 6000 });
-                toast.show();
-                el.addEventListener('hidden.bs.toast', () => el.remove());
-            }
-
-            function poll() {
-                fetch("{{ url_for('dashboard.api_drivers_online') }}")
-                    .then(r => r.ok ? r.json() : null)
-                    .then(data => {
-                        if (!data) return;
-                        const nowOnline = new Set(data.drivers.map(d => d.id));
-
-                        if (knownOnline !== null) {
-                            data.drivers.forEach(d => {
-                                if (!knownOnline.has(d.id)) {
-                                    showToast(`🟢 <strong>${d.name}</strong> just went online`);
-                                }
-                            });
-                        }
-                        knownOnline = nowOnline;
-                    })
-                    .catch(() => {});
-            }
-
-            poll();
-            setInterval(poll, 15000);
-        })();
-
-        // Polls for new shopper orders / parcel deliveries and toasts
-        // admins & superadmins so they can attend to them quickly. Only
-        // announces items new since the LAST poll (not on page load).
-        (function () {
-            let knownOrders = null;
-            let knownDeliveries = null;
-
-            function showToast(message) {
-                const container = document.getElementById('driverToastContainer');
-                const el = document.createElement('div');
-                el.className = 'toast align-items-center text-white bg-primary border-0';
+                el.className = `toast align-items-center text-white ${bgClass} border-0`;
                 el.setAttribute('role', 'alert');
                 el.innerHTML = `
                     <div class="d-flex">
@@ -269,36 +234,103 @@
                 el.addEventListener('hidden.bs.toast', () => el.remove());
             }
 
-            function poll() {
-                fetch("{{ url_for('dashboard.api_new_activity') }}")
-                    .then(r => r.ok ? r.json() : null)
-                    .then(data => {
-                        if (!data) return;
-                        const nowOrders = new Set(data.orders.map(o => o.id));
-                        const nowDeliveries = new Set(data.deliveries.map(d => d.id));
-
-                        if (knownOrders !== null) {
-                            data.orders.forEach(o => {
-                                if (!knownOrders.has(o.id)) {
-                                    showToast(`🛒 You have a new order <strong>${o.ref}</strong> (GHS ${o.amount.toFixed(2)})`);
-                                }
-                            });
-                        }
-                        if (knownDeliveries !== null) {
-                            data.deliveries.forEach(d => {
-                                if (!knownDeliveries.has(d.id)) {
-                                    showToast(`📦 You have a new delivery <strong>${d.ref}</strong> (GHS ${d.fee.toFixed(2)})`);
-                                }
-                            });
-                        }
-                        knownOrders = nowOrders;
-                        knownDeliveries = nowDeliveries;
-                    })
-                    .catch(() => {});
+            function handleEvent(type, data) {
+                if (type === 'new_order') {
+                    showToast(`🛒 You have a new order <strong>${data.ref}</strong> (GHS ${Number(data.amount).toFixed(2)})`, 'bg-primary');
+                } else if (type === 'new_delivery') {
+                    showToast(`📦 You have a new delivery <strong>${data.ref}</strong> (GHS ${Number(data.fee).toFixed(2)})`, 'bg-primary');
+                } else if (type === 'driver_online') {
+                    showToast(`🟢 <strong>${data.name}</strong> just went online`, 'bg-success');
+                }
             }
 
-            poll();
-            setInterval(poll, 15000);
+            // ── Polling fallback (only started if the websocket gives up) ──
+            let pollingStarted = false;
+            function startPollingFallback() {
+                if (pollingStarted) return;
+                pollingStarted = true;
+                console.warn('[live-updates] Websocket unavailable — falling back to polling.');
+
+                let knownOnline = null;
+                let knownOrders = null;
+                let knownDeliveries = null;
+
+                function pollDriversOnline() {
+                    fetch("{{ url_for('dashboard.api_drivers_online') }}")
+                        .then(r => r.ok ? r.json() : null)
+                        .then(data => {
+                            if (!data) return;
+                            const nowOnline = new Set(data.drivers.map(d => d.id));
+                            if (knownOnline !== null) {
+                                data.drivers.forEach(d => {
+                                    if (!knownOnline.has(d.id)) handleEvent('driver_online', d);
+                                });
+                            }
+                            knownOnline = nowOnline;
+                        })
+                        .catch(() => {});
+                }
+
+                function pollNewActivity() {
+                    fetch("{{ url_for('dashboard.api_new_activity') }}")
+                        .then(r => r.ok ? r.json() : null)
+                        .then(data => {
+                            if (!data) return;
+                            const nowOrders = new Set(data.orders.map(o => o.id));
+                            const nowDeliveries = new Set(data.deliveries.map(d => d.id));
+                            if (knownOrders !== null) {
+                                data.orders.forEach(o => {
+                                    if (!knownOrders.has(o.id)) handleEvent('new_order', o);
+                                });
+                            }
+                            if (knownDeliveries !== null) {
+                                data.deliveries.forEach(d => {
+                                    if (!knownDeliveries.has(d.id)) handleEvent('new_delivery', d);
+                                });
+                            }
+                            knownOrders = nowOrders;
+                            knownDeliveries = nowDeliveries;
+                        })
+                        .catch(() => {});
+                }
+
+                pollDriversOnline();
+                pollNewActivity();
+                setInterval(pollDriversOnline, 15000);
+                setInterval(pollNewActivity, 15000);
+            }
+
+            // ── Websocket (primary channel) ──
+            const apiBase = "{{ API_BASE_URL }}";
+            const wsUrl = apiBase.replace(/^http/, 'ws') + "/api/v1/ws?token={{ BACKEND_JWT }}";
+            const MAX_RECONNECT_ATTEMPTS = 6;
+            let reconnectAttempts = 0;
+
+            function connect() {
+                const socket = new WebSocket(wsUrl);
+
+                socket.onopen = () => { reconnectAttempts = 0; };
+
+                socket.onmessage = (event) => {
+                    let msg;
+                    try { msg = JSON.parse(event.data); } catch { return; }
+                    if (msg && msg.type) handleEvent(msg.type, msg.data || {});
+                };
+
+                socket.onclose = () => {
+                    reconnectAttempts++;
+                    if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
+                        startPollingFallback();
+                        return;
+                    }
+                    const delay = Math.min(30000, 1000 * (2 ** reconnectAttempts));
+                    setTimeout(connect, delay);
+                };
+
+                socket.onerror = () => socket.close();
+            }
+
+            connect();
         })();
     </script>
     {% endif %}

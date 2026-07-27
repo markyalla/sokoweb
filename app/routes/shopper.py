@@ -96,6 +96,13 @@ def add_store():
 
         slug = name.lower().replace(" ", "-")
 
+        # Store creation is tied to the owner's account: the shop inherits
+        # the owner's registered country so it surfaces correctly in the
+        # "your country first" sort on the storefront, without the admin
+        # having to enter it separately.
+        owner = User.query.get(owner_user_id)
+        owner_country = (owner.country if owner and owner.country else 'Ghana')
+
         new_store = Store(
             name=name,
             address=address,
@@ -106,6 +113,7 @@ def add_store():
             email=email,
             phone_number=phone_number,
             city=city,
+            country=owner_country,
             delivery_fee=float(delivery_fee),
             min_order_amount=float(min_order_amount),
             logo_url=logo_url,
