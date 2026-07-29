@@ -6,6 +6,7 @@ from math import radians, cos, sin, asin, sqrt
 import requests
 from sqlalchemy.orm import joinedload
 from sqlalchemy.exc import IntegrityError
+from datetime import datetime
 import os
 import uuid
 
@@ -45,7 +46,8 @@ def index():
     # page auto-refreshes every 30s), which was blocking gunicorn workers past
     # their timeout under load.
     users = User.query.with_entities(User.id, User.full_name, User.country).all()
-    return render_template('superadmin/stores.html', stores=stores, categories=categories, users=users)
+    owners_map = {str(u.id): u.full_name for u in users}
+    return render_template('superadmin/stores.html', stores=stores, categories=categories, users=users, owners_map=owners_map)
 
 @shopper_bp.route('/categories/add', methods=['GET', 'POST'])
 def add_category():
@@ -95,6 +97,8 @@ def add_store():
         delivery_fee     = request.form.get('delivery_fee', 0)
         min_order_amount = request.form.get('min_order_amount', 0)
         logo_url         = request.form.get('logo_url')
+        lat_str          = request.form.get('lat', '').strip()
+        lng_str          = request.form.get('lng', '').strip()
 
         slug = name.lower().replace(" ", "-")
 
@@ -120,15 +124,61 @@ def add_store():
             min_order_amount=float(min_order_amount),
             logo_url=logo_url,
         )
+        if lat_str and lng_str:
+            try:
+                new_store.lat = float(lat_str)
+                new_store.lng = float(lng_str)
+            except ValueError:
+                pass
         db.session.add(new_store)
         db.session.commit()
-        flash('Store created successfully!', 'success')
+        if not (lat_str and lng_str):
+            flash('Store created, but GPS location was not captured — open Edit to set it while at the shop.', 'warning')
+        else:
+            flash('Store created successfully!', 'success')
         return redirect(url_for('shopper.index'))
 
     categories = Category.query.all()
     stores     = Store.query.all()
     users      = User.query.with_entities(User.id, User.full_name, User.country).all()
-    return render_template('superadmin/stores.html', categories=categories, stores=stores, users=users)
+    owners_map = {str(u.id): u.full_name for u in users}
+    return render_template('superadmin/stores.html', categories=categories, stores=stores, users=users, owners_map=owners_map)
+
+@shopper_bp.route('/stores/<uuid:id>/edit', methods=['POST'])
+def edit_store(id):
+    redir = _require_role()
+    if redir:
+        return redir
+    store = Store.query.get_or_404(id)
+
+    store.name             = request.form.get('name')
+    store.description      = request.form.get('description')
+    store.category_id      = request.form.get('category_id')
+    store.owner_user_id    = str(request.form.get('owner_user_id'))
+    store.email            = request.form.get('email')
+    store.phone_number     = request.form.get('phone_number')
+    store.city             = request.form.get('city')
+    store.address          = request.form.get('address')
+    store.delivery_fee     = float(request.form.get('delivery_fee', 0) or 0)
+    store.min_order_amount = float(request.form.get('min_order_amount', 0) or 0)
+
+    logo_url = request.form.get('logo_url', '').strip()
+    if logo_url:
+        store.logo_url = logo_url
+
+    lat_str = request.form.get('lat', '').strip()
+    lng_str = request.form.get('lng', '').strip()
+    if lat_str and lng_str:
+        try:
+            store.lat = float(lat_str)
+            store.lng = float(lng_str)
+        except ValueError:
+            pass
+
+    store.updated_at = datetime.utcnow()
+    db.session.commit()
+    flash(f'"{store.name}" updated successfully!', 'success')
+    return redirect(url_for('shopper.index'))
 
 @shopper_bp.route('/stores/<uuid:id>/delete', methods=['POST'])
 def delete_store(id):
@@ -178,6 +228,7 @@ def manage_store(id):
     if redir:
         return redir
     store = Store.query.get_or_404(id)
+    owner = store.get_owner()
 
     media_base_url = f"{os.getenv('API_BASE_URL', 'http://localhost:8082')}/api/v1/media/serve/"
 
@@ -242,6 +293,7 @@ def manage_store(id):
     return render_template(
         'superadmin/manage_store.html',
         store=store,
+        owner=owner,
         products=products,
         orders=orders,
         eligible_drivers=eligible_drivers,
@@ -257,11 +309,17 @@ def add_product(id):
     redir = _require_role()
     if redir:
         return redir
+    # The price entered here is what the shop wants to take home per sale.
+    # SokoApp's 20% platform cut is taken from the customer-facing price, not
+    # added on top of the shop's price, so the customer price is grossed up
+    # (shop_price / 0.8) rather than marked up (shop_price * 1.2) — that way
+    # the shop's entered amount always lands as exactly 80% of what's charged.
+    shop_price = float(request.form.get('price'))
     new_product = Product(
         store_id=str(id),
         name=request.form.get('name'),
         description=request.form.get('description'),
-        base_price=request.form.get('price'),
+        base_price=shop_price / 0.8,
         image_url=request.form.get('image_url'),
         is_available=True,
     )
@@ -275,10 +333,11 @@ def edit_product(id):
     redir = _require_role()
     if redir:
         return redir
+    shop_price           = float(request.form.get('price'))
     product              = Product.query.get_or_404(id)
     product.name         = request.form.get('name')
     product.description  = request.form.get('description')
-    product.base_price   = request.form.get('price')
+    product.base_price   = shop_price / 0.8
     product.image_url    = request.form.get('image_url')
     product.is_available = 'is_available' in request.form
     db.session.commit()

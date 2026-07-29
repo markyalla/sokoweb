@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, g, redirect, url_for, request, flash
+from flask import Blueprint, render_template, g, redirect, url_for, request, flash, session
 from app.routes.models import Store, Product, Order, ShopCashoutRequest, User
 from app.routes import analytics
 from app import db
@@ -13,22 +13,86 @@ COMPLETED_STATUSES = ['delivered']
 HISTORY_STATUSES = ['cancelled', 'refunded', 'failed']
 
 
+def _get_owned_stores():
+    """All stores owned by the logged-in user, ordered by name."""
+    if not g.user:
+        return []
+    return Store.query.filter_by(owner_user_id=str(g.user.id)).order_by(Store.name).all()
+
+
 def _get_store():
-    """Return the store owned by the logged-in user, or None."""
+    """Return the active (session-selected) store for the logged-in user.
+
+    Auto-selects when the user owns exactly one store, preserving the old
+    zero-interstitial behavior. Returns None if the user owns zero stores,
+    or owns more than one and hasn't picked one yet — callers must send
+    them to the shop picker in that case.
+    """
     if not g.user:
         return None
-    return Store.query.filter_by(owner_user_id=str(g.user.id)).first()
+    stores = _get_owned_stores()
+    if not stores:
+        return None
+    active_id = session.get('active_store_id')
+    store = next((s for s in stores if str(s.id) == active_id), None)
+    if store:
+        return store
+    if len(stores) == 1:
+        session['active_store_id'] = str(stores[0].id)
+        return stores[0]
+    return None
 
 
 def _require_owner():
     """Validate auth + store ownership. Returns (store, error_redirect)."""
     if not g.user:
         return None, redirect(url_for('auth.login'))
-    store = _get_store()
-    if not store:
+    if not _get_owned_stores():
         flash('No store is linked to your account.', 'danger')
         return None, redirect(url_for('auth.login'))
+    store = _get_store()
+    if not store:
+        return None, redirect(url_for('store_owner.select_store'))
     return store, None
+
+
+@store_owner_bp.context_processor
+def inject_store_switcher():
+    if not g.user:
+        return {}
+    return {
+        'owner_stores': _get_owned_stores(),
+        'active_store_id': session.get('active_store_id'),
+    }
+
+
+# ── Shop picker / switcher ─────────────────────────────────────────────────────
+
+@store_owner_bp.route('/select')
+def select_store():
+    if not g.user:
+        return redirect(url_for('auth.login'))
+    stores = _get_owned_stores()
+    if not stores:
+        flash('No store is linked to your account.', 'danger')
+        return redirect(url_for('auth.login'))
+    if len(stores) == 1:
+        session['active_store_id'] = str(stores[0].id)
+        return redirect(url_for('store_owner.dashboard'))
+    return render_template('store/select_store.html', stores=stores)
+
+
+@store_owner_bp.route('/select/<uuid:store_id>', methods=['POST'])
+def set_active_store(store_id):
+    if not g.user:
+        return redirect(url_for('auth.login'))
+    store = next((s for s in _get_owned_stores() if str(s.id) == str(store_id)), None)
+    if not store:
+        flash('That shop is not linked to your account.', 'danger')
+        return redirect(url_for('store_owner.select_store'))
+    session['active_store_id'] = str(store.id)
+    flash(f'Switched to {store.name}.', 'success')
+    return redirect(url_for('store_owner.dashboard'))
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -253,8 +317,10 @@ def earnings():
         .order_by(ShopCashoutRequest.created_at.desc()).all()
 
     paid_out        = sum(float(c.amount or 0) for c in cashouts if c.status == 'paid')
-    pending_cashout = sum(float(c.amount or 0) for c in cashouts if c.status == 'pending')
+    pending_cashout = sum(float(c.amount or 0) for c in cashouts if c.status in ('pending', 'needs_correction'))
     available       = max(0.0, total_earned - paid_out - pending_cashout)
+
+    active_cashout = next((c for c in cashouts if c.status in ('pending', 'needs_correction')), None)
 
     return render_template('store/earnings.html',
         store=store,
@@ -264,7 +330,31 @@ def earnings():
         pending_cashout=pending_cashout,
         available_balance=available,
         cashouts=cashouts,
+        active_cashout=active_cashout,
     )
+
+
+def _parse_cashout_form(form):
+    """Parse method-specific payout destination fields from a cashout form
+    into the structured ShopCashoutRequest columns."""
+    method = form.get('method', 'momo')
+    data = {
+        'method': method,
+        'momo_number': None,
+        'bank_account_holder': None,
+        'bank_account_number': None,
+        'bank_name': None,
+        'bank_branch': None,
+        'note': form.get('note', '').strip() or None,
+    }
+    if method == 'momo':
+        data['momo_number'] = form.get('momo_number', '').strip() or None
+    elif method == 'bank':
+        data['bank_account_holder'] = form.get('account_holder', '').strip() or None
+        data['bank_account_number'] = form.get('account_number', '').strip() or None
+        data['bank_name']           = form.get('bank_name', '').strip() or None
+        data['bank_branch']         = form.get('bank_branch', '').strip() or None
+    return data
 
 
 @store_owner_bp.route('/cashout', methods=['POST'])
@@ -283,31 +373,58 @@ def request_cashout():
         flash('Minimum cashout is GH₵ 10.00.', 'danger')
         return redirect(url_for('store_owner.earnings'))
 
-    method = request.form.get('method', 'momo')
+    active = ShopCashoutRequest.query.filter(
+        ShopCashoutRequest.store_id == str(store.id),
+        ShopCashoutRequest.status.in_(['pending', 'needs_correction']),
+    ).first()
+    if active:
+        flash('You already have an active cashout request. Edit or resubmit that one instead.', 'warning')
+        return redirect(url_for('store_owner.earnings'))
 
-    if method == 'momo':
-        momo_number = request.form.get('momo_number', '').strip()
-        note = f'MoMo: {momo_number}' if momo_number else None
-    elif method == 'bank':
-        account_number = request.form.get('account_number', '').strip()
-        account_holder = request.form.get('account_holder', '').strip()
-        bank_name      = request.form.get('bank_name', '').strip()
-        parts = []
-        if account_number: parts.append(f'Account: {account_number}')
-        if account_holder: parts.append(f'Holder: {account_holder}')
-        if bank_name:      parts.append(f'Bank: {bank_name}')
-        note = ' | '.join(parts) or None
-    else:
-        note = request.form.get('note', '').strip() or None
-
+    fields = _parse_cashout_form(request.form)
     cashout = ShopCashoutRequest(
         store_id=str(store.id),
+        owner_user_id=str(g.user.id),
         amount=amount,
-        method=method,
         status='pending',
-        note=note,
+        **fields,
     )
     db.session.add(cashout)
     db.session.commit()
     flash(f'Cashout request of GH₵ {amount:.2f} submitted. Admin will process it shortly.', 'success')
+    return redirect(url_for('store_owner.earnings'))
+
+
+@store_owner_bp.route('/cashout/<uuid:cashout_id>/resubmit', methods=['POST'])
+def resubmit_cashout(cashout_id):
+    store, err = _require_owner()
+    if err:
+        return err
+
+    cr = ShopCashoutRequest.query.get_or_404(str(cashout_id))
+    if cr.store_id != str(store.id) or cr.status != 'needs_correction':
+        flash('This request cannot be resubmitted.', 'danger')
+        return redirect(url_for('store_owner.earnings'))
+
+    try:
+        amount = float(request.form.get('amount', '0'))
+    except ValueError:
+        flash('Invalid amount.', 'danger')
+        return redirect(url_for('store_owner.earnings'))
+
+    if amount < 10:
+        flash('Minimum cashout is GH₵ 10.00.', 'danger')
+        return redirect(url_for('store_owner.earnings'))
+
+    from datetime import datetime
+
+    fields = _parse_cashout_form(request.form)
+    cr.amount = amount
+    for key, value in fields.items():
+        setattr(cr, key, value)
+    cr.status = 'pending'
+    cr.correction_message = None
+    cr.updated_at = datetime.utcnow()
+    db.session.commit()
+    flash('Cashout request resubmitted for review.', 'success')
     return redirect(url_for('store_owner.earnings'))

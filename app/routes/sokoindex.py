@@ -90,11 +90,14 @@ def approve_application(id):
             display_name=applicant.full_name if applicant else 'Artisan',
             bio=application.bio,
             trade_category=application.trade_category,
+            country=(applicant.country if applicant and applicant.country else 'Ghana'),
             location_text=application.location_text,
             location_lat=application.location_lat,
             location_lng=application.location_lng,
             is_published=True,
         ))
+    elif not existing_profile.country:
+        existing_profile.country = applicant.country if applicant and applicant.country else 'Ghana'
 
     role_exists = UserRole.query.filter_by(user_id=application.user_id, role='artisan').first()
     if not role_exists:

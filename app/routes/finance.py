@@ -85,7 +85,9 @@ def shop_cashout_mark_paid(cashout_id):
     if redir:
         return redir
     cr = ShopCashoutRequest.query.get_or_404(str(cashout_id))
-    if cr.status != 'pending':
+    if cr.status == 'needs_correction':
+        flash('This request is awaiting the owner\'s correction — it cannot be paid yet.', 'warning')
+    elif cr.status != 'pending':
         flash(f'Request is already {cr.status}.', 'warning')
     else:
         cr.status = 'paid'
@@ -94,6 +96,30 @@ def shop_cashout_mark_paid(cashout_id):
         store = Store.query.filter(cast(Store.id, String) == cr.store_id).first()
         name = store.name if store else cr.store_id[:8]
         flash(f'Store payout of GH₵ {float(cr.amount):.2f} to {name} marked as paid.', 'success')
+    return redirect(url_for('finance.track_expenses', **request.args))
+
+
+# ── Request a correction on a shop cashout request ───────────────
+@finance_bp.route('/shop-cashout/<uuid:cashout_id>/request-correction', methods=['POST'])
+def shop_cashout_request_correction(cashout_id):
+    redir = _require_login()
+    if redir:
+        return redir
+    cr = ShopCashoutRequest.query.get_or_404(str(cashout_id))
+    message = request.form.get('message', '').strip()
+    if not message:
+        flash('A correction message is required.', 'danger')
+        return redirect(url_for('finance.track_expenses', **request.args))
+    if cr.status != 'pending':
+        flash(f'Request is already {cr.status} — cannot request correction.', 'warning')
+        return redirect(url_for('finance.track_expenses', **request.args))
+    cr.status = 'needs_correction'
+    cr.correction_message = message
+    cr.updated_at = datetime.utcnow()
+    db.session.commit()
+    store = Store.query.filter(cast(Store.id, String) == cr.store_id).first()
+    name = store.name if store else cr.store_id[:8]
+    flash(f"Correction requested for {name}'s payout — the owner will see your message.", 'info')
     return redirect(url_for('finance.track_expenses', **request.args))
 
 
@@ -252,6 +278,14 @@ def track_expenses():
     if all_store_ids:
         stores_map = {str(s.id): s for s in Store.query.filter(cast(Store.id, String).in_(all_store_ids)).all()}
 
+    owner_ids_for_stores = list({s.owner_user_id for s in stores_map.values() if s.owner_user_id})
+    store_owners_map = {}
+    if owner_ids_for_stores:
+        store_owners_map = {
+            str(u.id): u
+            for u in User.query.filter(cast(User.id, String).in_(owner_ids_for_stores)).all()
+        }
+
     # ── 8. Per-store breakdown ────────────────────────────────────
     store_stats = {}
     for order in shopper_orders:
@@ -275,7 +309,7 @@ def track_expenses():
             store_stats[sid] = _empty_store_stat(stores_map.get(sid))
         crs = shop_cashout_by_store.get(sid, [])
         paid    = sum(float(c.amount or 0) for c in crs if c.status == 'paid')
-        pending = sum(float(c.amount or 0) for c in crs if c.status == 'pending')
+        pending = sum(float(c.amount or 0) for c in crs if c.status in ('pending', 'needs_correction'))
         store_stats[sid]['cashout_paid']    = paid
         store_stats[sid]['cashout_pending'] = pending
         store_stats[sid]['cashout_balance'] = store_stats[sid]['store_payout'] - paid - pending
@@ -338,9 +372,14 @@ def track_expenses():
         for c in pending_driver_cashouts
     ]
 
-    # Enrich pending shop cashouts with store info
+    # Enrich pending shop cashouts with store + owner info
     pending_shop_cashouts_rich = [
-        {'cashout': c, 'store': stores_map.get(str(c.store_id))}
+        {
+            'cashout': c,
+            'store': stores_map.get(str(c.store_id)),
+            'owner': store_owners_map.get(str(stores_map[str(c.store_id)].owner_user_id))
+                     if stores_map.get(str(c.store_id)) else None,
+        }
         for c in pending_shop_cashouts
     ]
 
@@ -404,6 +443,7 @@ def track_expenses():
         shopper_display=shopper_display,
         pending_driver_cashouts=pending_driver_cashouts_rich,
         pending_shop_cashouts=pending_shop_cashouts_rich,
+        store_owners_map=store_owners_map,
         all_stores=all_stores,
         date_from=date_from_str,
         date_to=date_to_str,

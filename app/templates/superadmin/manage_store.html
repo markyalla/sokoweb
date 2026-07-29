@@ -119,6 +119,15 @@
           <i class="bi bi-circle-fill" style="color:{{ '#16a34a' if store.is_open else '#dc2626' }};font-size:0.5rem;"></i>
           <span style="color:{{ '#16a34a' if store.is_open else '#dc2626' }};font-weight:600;">{{ 'Open for orders' if store.is_open else 'Currently closed' }}</span>
         </div>
+        <hr class="my-2">
+        <div class="text-muted" style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;margin-bottom:4px;">Shop Owner</div>
+        {% if owner %}
+        <div class="info-row"><i class="bi bi-person"></i>{{ owner.full_name }}</div>
+        <div class="info-row"><i class="bi bi-telephone"></i>{{ owner.phone_number }}</div>
+        <div class="info-row"><i class="bi bi-envelope"></i>{{ owner.email }}</div>
+        {% else %}
+        <div class="info-row text-danger"><i class="bi bi-exclamation-triangle"></i>Owner account not found ({{ store.owner_user_id }})</div>
+        {% endif %}
       </div>
     </div>
 
@@ -192,7 +201,10 @@
                 <div class="text-muted small text-truncate" style="max-width:220px;">{{ product.description }}</div>
                 {% endif %}
               </td>
-              <td class="fw-bold" style="color:#FF8000;">GHS {{ "%.2f"|format(product.base_price|float) }}</td>
+              <td>
+                <div class="fw-bold" style="color:#FF8000;">GHS {{ "%.2f"|format(product.base_price|float) }}</div>
+                <div class="text-muted" style="font-size:0.68rem;">customer price · shop earns GHS {{ "%.2f"|format(product.base_price|float * 0.8) }}</div>
+              </td>
               <td class="text-center">
                 <form action="{{ url_for('shopper.toggle_product_availability', id=product.id) }}" method="POST">
                   <button type="submit"
@@ -236,8 +248,10 @@
                       </div>
                       <div class="row g-2 mb-3">
                         <div class="col-7">
-                          <label class="form-label small fw-bold text-uppercase text-muted">Price (GHS)</label>
-                          <input type="number" step="0.01" name="price" class="form-control" value="{{ product.base_price }}" required>
+                          <label class="form-label small fw-bold text-uppercase text-muted">Shop Receives (GHS)</label>
+                          <input type="number" step="0.01" name="price" class="form-control shopPriceInput"
+                                 value="{{ '%.2f'|format(product.base_price|float * 0.8) }}" required>
+                          <div class="form-text customerPriceHint"></div>
                         </div>
                         <div class="col-5 d-flex align-items-end pb-1">
                           <div class="form-check form-switch">
@@ -496,11 +510,12 @@
             <textarea name="description" class="form-control" rows="2" placeholder="Brief description…"></textarea>
           </div>
           <div class="mb-3">
-            <label class="form-label small fw-bold text-uppercase text-muted">Price (GHS) *</label>
+            <label class="form-label small fw-bold text-uppercase text-muted">Shop Receives (GHS) *</label>
             <div class="input-group">
               <span class="input-group-text text-muted small">GHS</span>
-              <input type="number" step="0.01" name="price" class="form-control" placeholder="0.00" required>
+              <input type="number" step="0.01" name="price" class="form-control shopPriceInput" placeholder="0.00" required>
             </div>
+            <div class="form-text customerPriceHint"></div>
           </div>
           <div class="mb-3">
             <label class="form-label small fw-bold text-uppercase text-muted">Product Image</label>
@@ -608,6 +623,18 @@ document.addEventListener('click', async (e) => {
     if (status) status.innerHTML = `<span class="text-danger">Network error: ${err.message}</span>`;
   } finally { btn.disabled = false; uploadInFlight = false; }
 });
+
+// ── Live customer-price hint (shop's entered price ÷ 0.8 = 20% platform cut) ──
+document.addEventListener('input', (e) => {
+  if (!e.target.classList.contains('shopPriceInput')) return;
+  const hint = e.target.closest('.mb-3, .col-7')?.querySelector('.customerPriceHint');
+  if (!hint) return;
+  const shopPrice = parseFloat(e.target.value);
+  if (isNaN(shopPrice) || shopPrice <= 0) { hint.textContent = ''; return; }
+  const customerPrice = shopPrice / 0.8;
+  hint.textContent = `Customer will be charged GHS ${customerPrice.toFixed(2)} (SokoApp keeps 20% = GHS ${(customerPrice - shopPrice).toFixed(2)})`;
+});
+document.querySelectorAll('.shopPriceInput').forEach(el => el.dispatchEvent(new Event('input')));
 
 // ── Auto-refresh (pauses while a form field is focused, or an upload is running) ──
 (function () {

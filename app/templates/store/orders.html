@@ -60,7 +60,7 @@
                         <th class="ps-3">Order ID</th>
                         <th>Customer</th>
                         <th>Items</th>
-                        <th>Subtotal</th>
+                        <th>Your Earnings</th>
                         <th>Status</th>
                         <th>Placed</th>
                         {% if tab == 'active' %}<th>Action</th>{% endif %}
@@ -87,7 +87,7 @@
                             </div>
                             {% else %}—{% endif %}
                         </td>
-                        <td class="fw-semibold">GH₵ {{ '%.2f'|format(o.subtotal|float if o.subtotal else 0) }}</td>
+                        <td class="fw-semibold">GH₵ {{ '%.2f'|format((o.subtotal|float if o.subtotal else 0) * 0.8) }}</td>
                         <td>
                             {% set s = o.status %}
                             {% if s == 'delivered' %}

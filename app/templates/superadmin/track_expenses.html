@@ -176,14 +176,23 @@
             <tr>
               <td class="ps-4">
                 <div class="fw-semibold small">{{ row.store.name if row.store else 'Unknown Store' }}</div>
+                {% if row.owner %}
+                <div class="text-muted" style="font-size:0.7rem;">{{ row.owner.full_name }} · {{ row.owner.phone_number }}</div>
+                {% endif %}
               </td>
               <td class="fw-bold text-warning">GH₵ {{ "%.2f"|format(c.amount | float) }}</td>
               <td>
-                {% if c.note %}
-                <div class="fw-semibold small" style="color:#FF8000;">{{ c.note }}</div>
+                {% if c.method == 'momo' and c.momo_number %}
+                <div class="fw-semibold small" style="color:#FF8000;">📱 {{ c.momo_number }}</div>
+                {% elif c.method == 'bank' %}
+                <div class="fw-semibold small" style="color:#FF8000;">
+                  🏦 {{ c.bank_account_holder or '—' }} · {{ c.bank_account_number or '—' }}<br>
+                  <span class="text-muted" style="font-size:0.7rem;">{{ c.bank_name or '' }}{% if c.bank_branch %} ({{ c.bank_branch }}){% endif %}</span>
+                </div>
                 {% else %}
                 <span class="text-muted small">—</span>
                 {% endif %}
+                {% if c.note %}<div class="text-muted fst-italic" style="font-size:0.7rem;">"{{ c.note }}"</div>{% endif %}
               </td>
               <td><span class="badge bg-warning-subtle text-warning border border-warning-subtle badge-pill">Pending</span></td>
               <td class="small text-muted">{{ c.created_at.strftime('%d %b %Y') if c.created_at else '—' }}</td>
@@ -195,6 +204,12 @@
                     data-msg="Mark GH₵ {{ _amt }} to {{ _sname }} as PAID?"
                     onclick="return confirm(this.dataset.msg)">
                     ✅ Mark Paid
+                  </button>
+                </form>
+                <form method="post" action="{{ url_for('finance.shop_cashout_request_correction', cashout_id=c.id) }}" style="display:inline;" class="correction-form">
+                  <input type="hidden" name="message" value="">
+                  <button type="button" class="btn btn-outline-danger btn-sm request-correction-btn" data-store="{{ _sname }}">
+                    ✉️ Request Correction
                   </button>
                 </form>
               </td>
@@ -532,6 +547,10 @@
           <td class="ps-4">
             <div class="fw-semibold small">{{ s.store.name if s.store else 'Unknown Store' }}</div>
             <div class="text-muted" style="font-size:0.7rem;">{{ s.store.city if s.store else '—' }}</div>
+            {% set _owner = store_owners_map.get(s.store.owner_user_id) if s.store else None %}
+            {% if _owner %}
+            <div class="text-muted" style="font-size:0.7rem;">{{ _owner.full_name }} · {{ _owner.phone_number }}</div>
+            {% endif %}
           </td>
           <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle badge-pill">{{ s.order_count }}</span></td>
           <td>
@@ -568,6 +587,18 @@
                   ✅ GH₵ {{ _amt }}
                 </button>
               </form>
+              <form method="post" action="{{ url_for('finance.shop_cashout_request_correction', cashout_id=c.id) }}" style="display:inline;" class="correction-form">
+                <input type="hidden" name="message" value="">
+                <button type="button" class="btn btn-outline-danger btn-sm request-correction-btn mb-1" data-store="{{ s.store.name if s.store else 'store' }}">
+                  ✉️
+                </button>
+              </form>
+              {% endfor %}
+              {% set correction_crs = s.cashouts | selectattr('status','equalto','needs_correction') | list %}
+              {% for c in correction_crs %}
+              <span class="badge bg-danger-subtle text-danger border border-danger-subtle badge-pill d-block mb-1">
+                GH₵ {{ "%.2f"|format(c.amount|float) }} needs correction
+              </span>
               {% endfor %}
             {% else %}
               <button class="btn btn-outline-primary btn-sm mark-paid-btn"
@@ -887,6 +918,19 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (amt && bal) amt.value = bal;
       if (hint && bal) hint.textContent = `Outstanding balance: GH₵ ${parseFloat(bal).toFixed(2)}`;
+    });
+  });
+
+  // Ask for a correction message, then submit the hidden "request correction" form
+  document.querySelectorAll('.request-correction-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const store = btn.dataset.store || 'this store';
+      const msg = prompt(`What needs to be corrected for ${store}'s payout request?`);
+      if (msg && msg.trim()) {
+        const form = btn.closest('form.correction-form');
+        form.querySelector('input[name=message]').value = msg.trim();
+        form.submit();
+      }
     });
   });
 });

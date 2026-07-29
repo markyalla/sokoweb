@@ -68,9 +68,12 @@ def login():
             if is_admin:
                 return redirect(url_for('dashboard.index'))
 
-            owned_store = Store.query.filter_by(owner_user_id=str(user.id)).first()
-            if owned_store:
+            owned_stores = Store.query.filter_by(owner_user_id=str(user.id)).all()
+            if len(owned_stores) == 1:
+                session['active_store_id'] = str(owned_stores[0].id)
                 return redirect(url_for('store_owner.dashboard'))
+            elif len(owned_stores) > 1:
+                return redirect(url_for('store_owner.select_store'))
 
             # Regular mobile user with no store — block web portal access
             session.clear()

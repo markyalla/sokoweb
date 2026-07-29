@@ -57,23 +57,41 @@
                 <span class="fw-semibold"><i class="bi bi-cash-coin me-2" style="color:var(--soko-primary);"></i>Request Cashout</span>
             </div>
             <div class="card-body">
-                {% if available_balance >= 10 %}
-                <form method="POST" action="{{ url_for('store_owner.request_cashout') }}">
+                {% set editing = active_cashout and active_cashout.status == 'needs_correction' %}
+                {% if editing %}
+                <div class="alert alert-danger border-0 mb-3">
+                    <strong><i class="bi bi-exclamation-circle me-1"></i>Correction needed:</strong>
+                    {{ active_cashout.correction_message }}
+                </div>
+                {% endif %}
+
+                {% if active_cashout and not editing %}
+                <div class="text-center py-3 text-muted">
+                    <i class="bi bi-hourglass-split fs-2 d-block mb-2"></i>
+                    <p class="mb-0">
+                        You have a cashout request of GH₵ {{ '%.2f'|format(active_cashout.amount|float) }}
+                        awaiting admin review.
+                    </p>
+                </div>
+                {% elif editing or available_balance >= 10 %}
+                {% set edit_max = (available_balance + active_cashout.amount|float) if editing else available_balance %}
+                <form method="POST" action="{{ url_for('store_owner.resubmit_cashout', cashout_id=active_cashout.id) if editing else url_for('store_owner.request_cashout') }}">
                     <div class="mb-3">
                         <label class="form-label fw-semibold small">Amount (GH₵)</label>
                         <input type="number" name="amount" step="0.01" min="10"
-                               max="{{ '%.2f'|format(available_balance) }}"
+                               max="{{ '%.2f'|format(edit_max) }}"
+                               value="{{ '%.2f'|format(active_cashout.amount|float) if editing else '' }}"
                                class="form-control" placeholder="10.00" required>
                         <div class="form-text">
-                            Available: <strong>GH₵ {{ '%.2f'|format(available_balance) }}</strong> · Min GH₵ 10.00
+                            Available: <strong>GH₵ {{ '%.2f'|format(edit_max) }}</strong> · Min GH₵ 10.00
                         </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-semibold small">Payment Method</label>
                         <select name="method" class="form-select" id="cashoutMethod" onchange="togglePaymentFields()">
-                            <option value="momo">Mobile Money (MoMo)</option>
-                            <option value="bank">Bank Transfer</option>
-                            <option value="cash">Cash</option>
+                            <option value="momo" {% if editing and active_cashout.method == 'momo' %}selected{% endif %}>Mobile Money (MoMo)</option>
+                            <option value="bank" {% if editing and active_cashout.method == 'bank' %}selected{% endif %}>Bank Transfer</option>
+                            <option value="cash" {% if editing and active_cashout.method == 'cash' %}selected{% endif %}>Cash</option>
                         </select>
                     </div>
 
@@ -81,10 +99,10 @@
                     <div id="momoFields" class="mb-3">
                         <label class="form-label fw-semibold small">MoMo Number</label>
                         <input type="tel" name="momo_number" id="momoNumber" class="form-control"
-                               value="{{ store.phone_number or '' }}"
+                               value="{{ active_cashout.momo_number if editing and active_cashout.momo_number else (g.user.phone_number or '') }}"
                                placeholder="e.g. 0244123456" maxlength="15">
-                        {% if store.phone_number %}
-                        <div class="form-text">Pre-filled from your store profile. Edit if different.</div>
+                        {% if not editing and g.user.phone_number %}
+                        <div class="form-text">Pre-filled from your account phone number. Edit if different.</div>
                         {% endif %}
                     </div>
 
@@ -93,22 +111,38 @@
                         <div class="mb-2">
                             <label class="form-label fw-semibold small">Account Number</label>
                             <input type="text" name="account_number" class="form-control"
+                                   value="{{ active_cashout.bank_account_number or '' if editing else '' }}"
                                    placeholder="e.g. 1234567890">
                         </div>
                         <div class="mb-2">
                             <label class="form-label fw-semibold small">Account Holder Name</label>
                             <input type="text" name="account_holder" class="form-control"
+                                   value="{{ active_cashout.bank_account_holder or '' if editing else '' }}"
                                    placeholder="e.g. John Mensah">
                         </div>
-                        <div>
+                        <div class="mb-2">
                             <label class="form-label fw-semibold small">Bank Name</label>
                             <input type="text" name="bank_name" class="form-control"
+                                   value="{{ active_cashout.bank_name or '' if editing else '' }}"
                                    placeholder="e.g. GCB Bank">
                         </div>
+                        <div>
+                            <label class="form-label fw-semibold small">Branch (optional)</label>
+                            <input type="text" name="bank_branch" class="form-control"
+                                   value="{{ active_cashout.bank_branch or '' if editing else '' }}"
+                                   placeholder="e.g. Osu Branch">
+                        </div>
                     </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small">Note (optional)</label>
+                        <textarea name="note" class="form-control" rows="2"
+                                  placeholder="Anything the admin should know…">{{ active_cashout.note or '' if editing else '' }}</textarea>
+                    </div>
+
                     <button type="submit" class="btn w-100 text-white fw-semibold"
                             style="background:var(--soko-primary);">
-                        <i class="bi bi-send me-2"></i>Submit Cashout Request
+                        <i class="bi bi-send me-2"></i>{{ 'Resubmit Cashout Request' if editing else 'Submit Cashout Request' }}
                     </button>
                 </form>
                 {% else %}
@@ -143,7 +177,7 @@
                                 <th class="ps-3">Date</th>
                                 <th>Amount</th>
                                 <th>Method</th>
-                                <th>Note</th>
+                                <th>Details</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
@@ -163,12 +197,22 @@
                                     <span class="badge bg-secondary">Cash</span>
                                     {% endif %}
                                 </td>
-                                <td class="small text-muted">{{ c.note or '—' }}</td>
+                                <td class="small text-muted">
+                                    {% if c.method == 'momo' and c.momo_number %}
+                                    {{ c.momo_number }}
+                                    {% elif c.method == 'bank' %}
+                                    {{ c.bank_account_holder or '—' }} · {{ c.bank_account_number or '—' }}
+                                    {% if c.bank_name %}<br>{{ c.bank_name }}{% if c.bank_branch %} ({{ c.bank_branch }}){% endif %}{% endif %}
+                                    {% else %}—{% endif %}
+                                    {% if c.note %}<div class="fst-italic">"{{ c.note }}"</div>{% endif %}
+                                </td>
                                 <td>
                                     {% if c.status == 'paid' %}
                                     <span class="badge bg-success"><i class="bi bi-check me-1"></i>Paid</span>
                                     {% elif c.status == 'pending' %}
                                     <span class="badge bg-warning text-dark">Pending</span>
+                                    {% elif c.status == 'needs_correction' %}
+                                    <span class="badge bg-danger"><i class="bi bi-exclamation-circle me-1"></i>Needs Correction</span>
                                     {% else %}
                                     <span class="badge bg-danger">{{ c.status|title }}</span>
                                     {% endif %}

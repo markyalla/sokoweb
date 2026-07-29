@@ -42,8 +42,10 @@
         <tr>
           <th class="ps-3">Logo</th>
           <th>Store Name</th>
+          <th>Owner</th>
           <th>Category</th>
           <th>Address</th>
+          <th class="text-center">GPS</th>
           <th class="text-center">Status</th>
           <th class="pe-3 text-end">Actions</th>
         </tr>
@@ -68,9 +70,17 @@
             <div class="text-muted small text-truncate" style="max-width:200px;">{{ store.description }}</div>
             {% endif %}
           </td>
+          <td class="small text-muted">{{ owners_map.get(store.owner_user_id, '—') }}</td>
           <td class="small text-muted">{{ store.category.name if store.category else '—' }}</td>
           <td class="small text-muted">
             {{ store.address }}{% if store.city %}, {{ store.city }}{% endif %}
+          </td>
+          <td class="text-center">
+            {% if store.lat and store.lng %}
+            <span class="text-success" title="{{ store.lat }}, {{ store.lng }}"><i class="bi bi-geo-alt-fill"></i></span>
+            {% else %}
+            <span class="text-danger" title="No GPS location on file"><i class="bi bi-geo-alt"></i></span>
+            {% endif %}
           </td>
           <td class="text-center">
             {% if store.is_open %}
@@ -85,6 +95,24 @@
                  class="btn btn-sm btn-orange px-3">
                 <i class="bi bi-box-seam me-1"></i>Manage
               </a>
+              <button type="button" class="btn btn-sm btn-outline-secondary edit-store-btn"
+                      data-bs-toggle="modal" data-bs-target="#editStoreModal"
+                      data-id="{{ store.id }}"
+                      data-name="{{ store.name }}"
+                      data-description="{{ store.description or '' }}"
+                      data-category-id="{{ store.category_id or '' }}"
+                      data-owner-id="{{ store.owner_user_id or '' }}"
+                      data-email="{{ store.email or '' }}"
+                      data-phone="{{ store.phone_number or '' }}"
+                      data-city="{{ store.city or '' }}"
+                      data-address="{{ store.address or '' }}"
+                      data-delivery-fee="{{ store.delivery_fee or 0 }}"
+                      data-min-order="{{ store.min_order_amount or 0 }}"
+                      data-logo="{{ store.logo_url or '' }}"
+                      data-lat="{{ store.lat or '' }}"
+                      data-lng="{{ store.lng or '' }}">
+                <i class="bi bi-pencil"></i>
+              </button>
               <form action="{{ url_for('shopper.delete_store', id=store.id) }}" method="POST"
                     onsubmit="return confirm('Permanently delete \'{{ store.name }}\'? This cannot be undone.')">
                 <button type="submit" class="btn btn-sm btn-outline-danger">
@@ -96,7 +124,7 @@
         </tr>
         {% else %}
         <tr>
-          <td colspan="6" class="text-center py-5 text-muted">
+          <td colspan="8" class="text-center py-5 text-muted">
             <i class="bi bi-shop fs-2 d-block mb-2"></i>No stores yet. Add one to get started.
           </td>
         </tr>
@@ -180,11 +208,110 @@
               <div class="uploadStatus small mt-1"></div>
               <div class="mt-2 text-center image-preview"></div>
             </div>
+            <div class="col-12">
+              <input type="hidden" name="lat" class="gpsLat">
+              <input type="hidden" name="lng" class="gpsLng">
+              <div class="gpsStatus small text-muted">
+                <i class="bi bi-geo-alt"></i> Capturing your current location…
+              </div>
+            </div>
           </div>
         </div>
         <div class="modal-footer border-0 pb-4 px-4">
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
           <button type="submit" class="btn btn-orange px-4">Create Store</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Store Modal -->
+<div class="modal fade" id="editStoreModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 shadow rounded-4">
+      <div class="modal-header pt-4 px-4" style="border-bottom:2px solid #FF8000;">
+        <h5 class="modal-title fw-bold">Edit Store</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="editStoreForm" action="" method="POST"
+            data-action-template="{{ url_for('shopper.edit_store', id='00000000-0000-0000-0000-000000000000') }}">
+        <div class="modal-body px-4">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label small fw-bold text-uppercase text-muted">Store Name *</label>
+              <input type="text" name="name" class="form-control" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-bold text-uppercase text-muted">Description</label>
+              <textarea name="description" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-uppercase text-muted">Category *</label>
+              <select name="category_id" class="form-select" required>
+                <option value="" disabled>Select category</option>
+                {% for cat in categories %}
+                <option value="{{ cat.id }}">{{ cat.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-uppercase text-muted">Owner *</label>
+              <select name="owner_user_id" class="form-select" required>
+                <option value="" disabled>Select owner</option>
+                {% for u in users %}
+                <option value="{{ u.id }}">{{ u.full_name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-uppercase text-muted">Email</label>
+              <input type="email" name="email" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-uppercase text-muted">Phone</label>
+              <input type="tel" name="phone_number" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-uppercase text-muted">City</label>
+              <input type="text" name="city" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-uppercase text-muted">Address *</label>
+              <input type="text" name="address" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-uppercase text-muted">Delivery Fee (GHS)</label>
+              <input type="number" step="0.01" name="delivery_fee" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold text-uppercase text-muted">Min Order (GHS)</label>
+              <input type="number" step="0.01" name="min_order_amount" class="form-control">
+            </div>
+            <div class="col-12 mb-2">
+              <label class="form-label small fw-bold text-uppercase text-muted">Store Logo / Cover Image</label>
+              <div class="input-group mb-2">
+                <input type="file" class="form-control imageUploadFile" accept="image/*" data-bucket="store-logos">
+                <button class="btn btn-sm btn-orange uploadBtn" type="button">Upload</button>
+              </div>
+              <input type="text" name="logo_url" class="form-control form-control-sm imageUrlInput"
+                     placeholder="Path will appear after upload">
+              <div class="uploadStatus small mt-1"></div>
+              <div class="mt-2 text-center image-preview"></div>
+            </div>
+            <div class="col-12">
+              <input type="hidden" name="lat" class="gpsLat">
+              <input type="hidden" name="lng" class="gpsLng">
+              <div class="gpsStatus small text-muted"></div>
+              <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="updateLocationBtn">
+                <i class="bi bi-geo-alt me-1"></i>Update to My Current Location
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pb-4 px-4">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-orange px-4">Save Changes</button>
         </div>
       </form>
     </div>
@@ -235,6 +362,72 @@ document.addEventListener('click', async (e) => {
   } finally { btn.disabled = false; }
 });
 
+// ── GPS capture (Add Store: automatic; Edit Store: automatic only when missing) ──
+function captureLocation(scope) {
+  const latField = scope.querySelector('.gpsLat');
+  const lngField = scope.querySelector('.gpsLng');
+  const status    = scope.querySelector('.gpsStatus');
+  if (!navigator.geolocation) {
+    if (status) status.innerHTML = '<span class="text-warning"><i class="bi bi-exclamation-triangle"></i> Geolocation not supported by this browser — location will not be saved.</span>';
+    return;
+  }
+  if (status) status.innerHTML = '<i class="bi bi-geo-alt"></i> Capturing your current location…';
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      latField.value = pos.coords.latitude;
+      lngField.value = pos.coords.longitude;
+      if (status) status.innerHTML = `<span class="text-success"><i class="bi bi-geo-alt-fill"></i> Location captured (±${Math.round(pos.coords.accuracy)}m)</span>`;
+    },
+    (err) => {
+      if (status) status.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-triangle"></i> Could not capture location — allow location access, or add it later via Edit.</span>';
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+const addStoreModalEl = document.getElementById('addStoreModal');
+if (addStoreModalEl) {
+  addStoreModalEl.addEventListener('shown.bs.modal', () => captureLocation(addStoreModalEl));
+}
+
+const editStoreModalEl = document.getElementById('editStoreModal');
+if (editStoreModalEl) {
+  editStoreModalEl.addEventListener('show.bs.modal', (e) => {
+    const btn  = e.relatedTarget;
+    const form = document.getElementById('editStoreForm');
+    if (!btn || !form) return;
+    form.action = form.dataset.actionTemplate.replace('00000000-0000-0000-0000-000000000000', btn.dataset.id);
+    form.querySelector('[name=name]').value             = btn.dataset.name || '';
+    form.querySelector('[name=description]').value      = btn.dataset.description || '';
+    form.querySelector('[name=category_id]').value      = btn.dataset.categoryId || '';
+    form.querySelector('[name=owner_user_id]').value     = btn.dataset.ownerId || '';
+    form.querySelector('[name=email]').value             = btn.dataset.email || '';
+    form.querySelector('[name=phone_number]').value      = btn.dataset.phone || '';
+    form.querySelector('[name=city]').value              = btn.dataset.city || '';
+    form.querySelector('[name=address]').value           = btn.dataset.address || '';
+    form.querySelector('[name=delivery_fee]').value      = btn.dataset.deliveryFee || 0;
+    form.querySelector('[name=min_order_amount]').value  = btn.dataset.minOrder || 0;
+    form.querySelector('.imageUrlInput').value           = btn.dataset.logo || '';
+
+    const latField = form.querySelector('.gpsLat');
+    const lngField = form.querySelector('.gpsLng');
+    const status    = form.querySelector('.gpsStatus');
+    latField.value = btn.dataset.lat || '';
+    lngField.value = btn.dataset.lng || '';
+    if (btn.dataset.lat && btn.dataset.lng) {
+      status.innerHTML = `<span class="text-success"><i class="bi bi-geo-alt-fill"></i> Location on file: ${parseFloat(btn.dataset.lat).toFixed(5)}, ${parseFloat(btn.dataset.lng).toFixed(5)}</span>`;
+    } else {
+      // No location on file yet — capture it automatically now, in case the
+      // admin is standing at the shop while backfilling this record.
+      captureLocation(form);
+    }
+  });
+
+  document.getElementById('updateLocationBtn')?.addEventListener('click', () => {
+    captureLocation(document.getElementById('editStoreForm'));
+  });
+}
+
 // ── Auto-refresh (pauses while a form field is focused) ──────────────
 (function () {
   const SECONDS = 30;
@@ -248,7 +441,7 @@ document.addEventListener('click', async (e) => {
 
   let t = SECONDS;
   setInterval(() => {
-    if (paused) { t = SECONDS; badge.textContent = '↻ paused'; return; }
+    if (paused || document.querySelector('.modal.show')) { t = SECONDS; badge.textContent = '↻ paused'; return; }
     t--;
     badge.textContent = `↻ ${t}s`;
     if (t <= 0) window.location.reload();

@@ -17,7 +17,7 @@
                     <tr>
                         <th class="ps-3" style="width:60px;">Photo</th>
                         <th>Product</th>
-                        <th>Price</th>
+                        <th>Your Price <span class="text-muted fw-normal">(80% of customer price)</span></th>
                         <th>Status</th>
                         <th>Toggle</th>
                     </tr>
@@ -43,10 +43,10 @@
                             {% endif %}
                         </td>
                         <td>
-                            <span class="fw-semibold">GH₵ {{ '%.2f'|format(p.base_price|float) }}</span>
+                            <span class="fw-semibold">GH₵ {{ '%.2f'|format(p.base_price|float * 0.8) }}</span>
                             {% if p.discount_price %}
                             <div class="small text-danger">
-                                Sale: GH₵ {{ '%.2f'|format(p.discount_price|float) }}
+                                Sale: GH₵ {{ '%.2f'|format(p.discount_price|float * 0.8) }}
                             </div>
                             {% endif %}
                         </td>

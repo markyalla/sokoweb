@@ -45,6 +45,9 @@
                         <i class="bi bi-shop me-1"></i>Shop Portal
                     </span>
                 </a>
+                {% if owner_stores is defined and owner_stores|length > 1 and store is defined and store %}
+                <div class="small text-truncate mt-1" style="color:#9ca3af;">{{ store.name }}</div>
+                {% endif %}
             </div>
             <nav class="nav nav-pills flex-column">
                 <a href="{{ url_for('store_owner.dashboard') }}"
@@ -84,6 +87,28 @@
                     {% endif %}
                     <span class="fw-semibold text-muted small d-none d-md-inline">{% block page_title %}{% endblock %}</span>
                     <div class="ms-auto d-flex align-items-center">
+                        {% if owner_stores is defined and owner_stores|length > 1 %}
+                        <div class="dropdown me-2">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-shop"></i>
+                                <span class="d-none d-sm-inline small">Switch Shop</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2">
+                                {% for s in owner_stores %}
+                                <li>
+                                    <form method="POST" action="{{ url_for('store_owner.set_active_store', store_id=s.id) }}">
+                                        <button type="submit" class="dropdown-item d-flex align-items-center justify-content-between {% if s.id|string == active_store_id %}active{% endif %}">
+                                            {{ s.name }}
+                                            {% if s.id|string == active_store_id %}<i class="bi bi-check2"></i>{% endif %}
+                                        </button>
+                                    </form>
+                                </li>
+                                {% endfor %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ url_for('store_owner.select_store') }}">All my shops</a></li>
+                            </ul>
+                        </div>
+                        {% endif %}
                         {% if g.user %}
                         <div class="dropdown">
                             <button class="btn btn-link text-decoration-none text-dark dropdown-toggle d-flex align-items-center gap-2"

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select a Shop — SokoApp</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        :root { --soko-primary: #f97316; }
+        body { background-color: #f9fafb; font-family: system-ui, -apple-system, sans-serif; min-height: 100vh; }
+        .shop-card { border: 1px solid #e5e7eb; border-radius: 0.75rem; transition: box-shadow 0.15s, border-color 0.15s; cursor: pointer; }
+        .shop-card:hover { border-color: var(--soko-primary); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .store-badge { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+        .store-badge.open { background: #22c55e; }
+        .store-badge.closed { background: #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <div class="d-flex align-items-center justify-content-between mb-4">
+            <div>
+                <h4 class="fw-bold mb-1"><i class="bi bi-shop me-2" style="color: var(--soko-primary);"></i>Select a Shop</h4>
+                <p class="text-muted mb-0">Choose which of your shops you'd like to manage.</p>
+            </div>
+            <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-danger btn-sm">
+                <i class="bi bi-box-arrow-left me-1"></i>Logout
+            </a>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category if category != 'message' else 'info' }} alert-dismissible fade show border-0 shadow-sm mb-4" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="row g-3">
+            {% for s in stores %}
+            <div class="col-12 col-sm-6 col-lg-4">
+                <form method="POST" action="{{ url_for('store_owner.set_active_store', store_id=s.id) }}">
+                    <button type="submit" class="btn p-0 border-0 bg-transparent w-100 text-start">
+                        <div class="shop-card p-3 bg-white h-100">
+                            <div class="d-flex align-items-center gap-3">
+                                {% if s.logo_url %}
+                                <img src="{{ resolve_media(s.logo_url) }}" alt="{{ s.name }}"
+                                     class="rounded-3 object-fit-cover" style="width:52px;height:52px;">
+                                {% else %}
+                                <div class="rounded-3 d-flex align-items-center justify-content-center text-white fw-bold fs-5"
+                                     style="width:52px;height:52px;background:var(--soko-primary);">
+                                    {{ s.name[0] }}
+                                </div>
+                                {% endif %}
+                                <div class="min-width-0">
+                                    <div class="fw-bold text-dark text-truncate">{{ s.name }}</div>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <span class="store-badge {{ 'open' if s.is_open else 'closed' }}"></span>
+                                        <span class="small text-muted">{{ 'Open' if s.is_open else 'Closed' }}</span>
+                                        {% if s.city %}<span class="text-muted small">· {{ s.city }}</span>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>

@@ -132,6 +132,11 @@ class Store(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    def get_owner(self):
+        """Cross-database owner lookup — owner_user_id has no FK because
+        User lives in the 'account' bind, not 'shopper'."""
+        return User.query.filter(cast(User.id, SAString) == self.owner_user_id).first()
+
 class Product(db.Model):
     __bind_key__ = 'shopper'
     __tablename__ = 'products'
@@ -368,10 +373,17 @@ class ShopCashoutRequest(db.Model):
     __tablename__ = 'shop_cashout_requests'
     id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     store_id = db.Column(db.String(36), nullable=False)
+    owner_user_id = db.Column(db.String(36))  # snapshot of Store.owner_user_id at request time; cross-DB, no FK
     amount = db.Column(db.Numeric(10, 2), nullable=False)
     method = db.Column(db.String(20))   # momo | bank | cash
-    status = db.Column(db.String(20), default='pending')  # pending | paid | rejected
-    note = db.Column(db.Text)
+    momo_number = db.Column(db.String(20))
+    bank_account_holder = db.Column(db.String(150))
+    bank_account_number = db.Column(db.String(50))
+    bank_name = db.Column(db.String(150))
+    bank_branch = db.Column(db.String(150))
+    status = db.Column(db.String(20), default='pending')  # pending | paid | rejected (unused) | needs_correction
+    correction_message = db.Column(db.Text)
+    note = db.Column(db.Text)  # owner's optional free-text comment only
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -515,6 +527,7 @@ class ArtisanProfile(db.Model):
     display_name = db.Column(db.String(150), nullable=False)
     bio = db.Column(db.Text)
     trade_category = db.Column(db.String(100), nullable=False)
+    country = db.Column(db.String(100))
     location_text = db.Column(db.String(255))
     location_lat = db.Column(db.Numeric(10, 7))
     location_lng = db.Column(db.Numeric(10, 7))
