@@ -1,9 +1,11 @@
 from flask import Blueprint, render_template, g, redirect, url_for, request, flash, current_app
-from sqlalchemy import func, desc, cast, String
+from sqlalchemy import func, desc, cast
+from sqlalchemy.dialects.postgresql import UUID
 from app.routes.models import Delivery, DeliveryAssignment, DriverEarning, DriverProfile, User, DriverComplaint
 from app import db
 from datetime import datetime
 import math
+import uuid
 
 delivery_bp = Blueprint('delivery', __name__)
 
@@ -40,9 +42,9 @@ STATUS_CLASSES = {
 # These helpers let the admin filter and count by the latest assignment status.
 
 def _ids_with_status(statuses):
-    """Return a subquery of delivery order_ids (as text) matching any of the given statuses."""
+    """Return a subquery of delivery order_ids, cast to uuid, matching any of the given statuses."""
     return (
-        db.session.query(DeliveryAssignment.order_id)
+        db.session.query(cast(DeliveryAssignment.order_id, UUID))
         .filter(DeliveryAssignment.status.in_(statuses))
         .distinct()
         .subquery()
@@ -51,10 +53,14 @@ def _ids_with_status(statuses):
 
 def _delivery_id_filter(subq):
     """
-    Compare Delivery.id (uuid column) against a subquery that returns text order_ids.
-    PostgreSQL won't do uuid = text implicitly, so cast Delivery.id to text first.
+    Compare Delivery.id (uuid column, indexed) against a subquery of order_ids.
+    The subquery's text order_ids are cast to uuid at the source (_ids_with_status)
+    instead of casting Delivery.id to text here — casting the indexed column forced
+    a sequential scan on every call (3x per orders_list request), which got slower
+    as the deliveries table grew and was blocking gunicorn workers past their
+    timeout under load.
     """
-    return cast(Delivery.id, String).in_(subq)
+    return Delivery.id.in_(subq)
 
 
 def _latest_status_map(order_ids):
@@ -227,9 +233,17 @@ def assignments_list():
     order_ids = [a.order_id for a in pagination.items]   # already strings (text column)
     deliveries_map = {}
     if order_ids:
-        # cast Delivery.id (uuid) to text for comparison with text order_ids
-        rows = Delivery.query.filter(cast(Delivery.id, String).in_(order_ids)).all()
-        deliveries_map = {str(r.id): r for r in rows}
+        # Convert to uuid.UUID in Python rather than casting Delivery.id (uuid,
+        # indexed) to text — casting the column blocks index use on every call.
+        uuid_ids = []
+        for oid in order_ids:
+            try:
+                uuid_ids.append(uuid.UUID(oid))
+            except (ValueError, AttributeError, TypeError):
+                continue
+        if uuid_ids:
+            rows = Delivery.query.filter(Delivery.id.in_(uuid_ids)).all()
+            deliveries_map = {str(r.id): r for r in rows}
 
     return render_template(
         'delivery/assignments.html',

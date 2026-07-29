@@ -39,10 +39,12 @@ def index():
         return redir
     stores = Store.query.all()
     categories = Category.query.all()
-    users = User.query.options(
-        joinedload(User.kyc),
-        joinedload(User.driver_profile)
-    ).all()
+    # stores.html only needs id/full_name/country for the owner-picker dropdown —
+    # joinedload(kyc)/joinedload(driver_profile) pulled two unused joins across
+    # the entire users table on every load (worse as the table grows, and this
+    # page auto-refreshes every 30s), which was blocking gunicorn workers past
+    # their timeout under load.
+    users = User.query.with_entities(User.id, User.full_name, User.country).all()
     return render_template('superadmin/stores.html', stores=stores, categories=categories, users=users)
 
 @shopper_bp.route('/categories/add', methods=['GET', 'POST'])
@@ -125,7 +127,7 @@ def add_store():
 
     categories = Category.query.all()
     stores     = Store.query.all()
-    users      = User.query.all()
+    users      = User.query.with_entities(User.id, User.full_name, User.country).all()
     return render_template('superadmin/stores.html', categories=categories, stores=stores, users=users)
 
 @shopper_bp.route('/stores/<uuid:id>/delete', methods=['POST'])

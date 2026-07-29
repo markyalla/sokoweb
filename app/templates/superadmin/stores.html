@@ -234,5 +234,25 @@ document.addEventListener('click', async (e) => {
     if (status) status.innerHTML = `<span class="text-danger">Network error: ${err.message}</span>`;
   } finally { btn.disabled = false; }
 });
+
+// ── Auto-refresh (pauses while a form field is focused) ──────────────
+(function () {
+  const SECONDS = 30;
+  let paused = false;
+  document.addEventListener('focusin',  e => { if (e.target.matches('input,textarea,select')) paused = true; });
+  document.addEventListener('focusout', e => { if (e.target.matches('input,textarea,select')) paused = false; });
+
+  const badge = document.createElement('small');
+  badge.style.cssText = 'position:fixed;bottom:12px;right:16px;background:#111827;color:#9ca3af;padding:4px 10px;border-radius:20px;font-size:0.72rem;z-index:9999;';
+  document.body.appendChild(badge);
+
+  let t = SECONDS;
+  setInterval(() => {
+    if (paused) { t = SECONDS; badge.textContent = '↻ paused'; return; }
+    t--;
+    badge.textContent = `↻ ${t}s`;
+    if (t <= 0) window.location.reload();
+  }, 1000);
+})();
 </script>
 {% endblock %}
