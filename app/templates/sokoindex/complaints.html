@@ -82,7 +82,7 @@
                 <p class="small mb-1"><strong>Artisan:</strong> <span id="modalArtisanName"></span></p>
                 <p class="small mb-3" id="modalDescription"></p>
 
-                <form id="resolveForm" method="post">
+                <form id="resolveForm" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-2">
                         <label class="form-label small">Resolution</label>
                         <select name="status" class="form-select form-select-sm">
@@ -103,7 +103,7 @@
                 </form>
 
                 <hr>
-                <form id="suspendForm" method="post">
+                <form id="suspendForm" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-2">
                         <label class="form-label small">Suspend this artisan</label>
                         <textarea name="reason" class="form-control form-control-sm" rows="2" placeholder="Suspension reason"></textarea>

@@ -25,6 +25,13 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     API_BASE_URL = os.environ.get('API_BASE_URL', 'http://192.168.2.195:8082')
 
+    # Session cookie hardening — defense-in-depth alongside CSRFProtect.
+    # SECURE is env-driven so local HTTP dev still works; set FLASK_ENV=production
+    # (or COOKIE_SECURE=true) once served over HTTPS.
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    SESSION_COOKIE_SECURE = os.environ.get('FLASK_ENV') == 'production' or os.environ.get('COOKIE_SECURE', '').lower() == 'true'
+
     SQLALCHEMY_DATABASE_URI = get_uri('sokoaccount')
     SQLALCHEMY_BINDS = {
         'account':   get_uri('sokoaccount'),

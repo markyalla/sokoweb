@@ -9,7 +9,7 @@
                     <p class="text-muted">Set up your credentials for the Super Admin panel</p>
                 </div>
 
-                <form method="POST">
+                <form method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="row g-3 mb-3">
                         <div class="col-12 col-sm-6">
                             <label class="form-label fw-semibold text-secondary small">FULL NAME</label>

@@ -26,7 +26,7 @@
     </div>
 
     <!-- Toggle open/closed -->
-    <form method="POST" action="{{ url_for('store_owner.toggle_open') }}">
+    <form method="POST" action="{{ url_for('store_owner.toggle_open') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         {% if store.is_open %}
         <button type="submit" class="btn btn-outline-danger">
             <i class="bi bi-door-closed me-1"></i>Close Store

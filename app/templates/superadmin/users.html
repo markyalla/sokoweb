@@ -43,6 +43,7 @@
                     {% for user in users %}
                     {% set user_roles = user.roles|map(attribute='role')|list %}
                     {% set is_shop_owner = user.id|string in store_owner_ids %}
+                    {% set is_locked = user.locked_until and user.locked_until > now %}
                     <tr>
                         <td class="ps-4 py-3">
                             <div class="d-flex align-items-center">
@@ -82,6 +83,11 @@
                                     <span class="badge rounded-pill bg-light text-muted border">User</span>
                                 {% endif %}
                             {% endif %}
+                            {% if is_locked %}
+                                <span class="badge rounded-pill bg-warning text-dark ms-1" title="Locked until {{ user.locked_until.strftime('%b %d, %I:%M %p') }} UTC">
+                                    <i class="bi bi-lock-fill"></i> Locked
+                                </span>
+                            {% endif %}
                         </td>
                         <td class="small text-center">{{ user.created_at.strftime('%b %d, %Y') }}</td>
                         <td class="pe-4 text-end">
@@ -110,6 +116,8 @@
                                 data-driver-stats="Rating: {{ user.driver_profile.rating }} | Deliveries: {{ user.driver_profile.total_deliveries }}"
                                 data-driver-license="{{ user.driver_profile.license_number }}"
                                 data-roles='{{ user_roles|tojson }}'
+                                data-is-locked="{{ 'true' if is_locked else 'false' }}"
+                                data-locked-until="{{ user.locked_until.strftime('%b %d, %I:%M %p') + ' UTC' if is_locked else '' }}"
                             >View Profile</button>
                         </td>
                     </tr>
@@ -139,8 +147,14 @@
                          style="width: 100px; height: 100px; object-fit: cover; display: none;">
                 </div>
 
+                <div id="lockedAlert" class="alert alert-warning d-flex align-items-center justify-content-between py-2 px-3 mb-3" style="display:none;">
+                    <span class="small"><i class="bi bi-lock-fill me-1"></i> Locked until <span id="lockedUntilText"></span> due to too many failed login attempts.</span>
+                    <button type="button" class="btn btn-sm btn-warning text-nowrap" onclick="document.getElementById('unlockUserForm').submit();">Unlock Now</button>
+                </div>
+                <form id="unlockUserForm" method="POST" style="display: none;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+
                 <!-- User Info Form (CRUD: Update) -->
-                <form id="updateUserForm" method="POST">
+                <form id="updateUserForm" method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h6 class="text-uppercase small fw-bold text-muted mb-0">Account Details</h6>
                         <div id="modalAccountBadges"></div>
@@ -188,7 +202,7 @@
                     </div>
                 </form>
 
-                <form id="deleteUserForm" method="POST" style="display: none;"></form>
+                <form id="deleteUserForm" method="POST" style="display: none;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
 
                 <hr class="my-4">
 
@@ -208,13 +222,13 @@
                             <div id="modalKycDocs" class="d-flex gap-2 flex-wrap"></div>
                         </div>
                         <div id="kycActions" class="d-flex gap-2" style="display: none;">
-                            <form id="approveKycForm" method="POST" class="flex-grow-1">
+                            <form id="approveKycForm" method="POST" class="flex-grow-1"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-success w-100">Approve KYC</button>
                             </form>
-                            <form id="rejectKycForm" method="POST" class="flex-grow-1">
+                            <form id="rejectKycForm" method="POST" class="flex-grow-1"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-outline-danger w-100">Reject</button>
                             </form>
-                            <form id="deleteKycForm" method="POST" class="flex-grow-1" style="display:none;">
+                            <form id="deleteKycForm" method="POST" class="flex-grow-1" style="display:none;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-link text-danger w-100">Reset</button>
                             </form>
                         </div>
@@ -232,13 +246,13 @@
                             <div id="modalDriverLicense" class="small text-muted"></div>
                         </div>
                         <div id="driverActions" class="d-flex gap-2" style="display: none;">
-                            <form id="approveDriverForm" method="POST" class="flex-grow-1">
+                            <form id="approveDriverForm" method="POST" class="flex-grow-1"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-success w-100">Approve Driver</button>
                             </form>
-                            <form id="rejectDriverForm" method="POST" class="flex-grow-1">
+                            <form id="rejectDriverForm" method="POST" class="flex-grow-1"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-warning w-100">Reject</button>
                             </form>
-                            <form id="suspendDriverForm" method="POST" class="flex-grow-1">
+                            <form id="suspendDriverForm" method="POST" class="flex-grow-1"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-danger w-100">Suspend</button>
                             </form>
                         </div>
@@ -249,7 +263,7 @@
                 <hr class="my-4">
                 <div class="sec-label">Roles &amp; Access</div>
                 <div id="modalRoleBadges" class="d-flex flex-wrap gap-2 mb-3"></div>
-                <form id="addRoleForm" method="POST" class="d-flex gap-2">
+                <form id="addRoleForm" method="POST" class="d-flex gap-2"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <select name="role" id="modalRoleSelect" class="form-select form-select-sm">
                         {% for r in assignable_roles %}
                         <option value="{{ r }}">{{ r.replace('soko', '').replace('_', ' ')|title }}</option>
@@ -318,8 +332,16 @@ document.getElementById('userModal').addEventListener('show.bs.modal', function 
     
     // Set form actions
     document.getElementById('updateUserForm').action = `/account/users/${userId}/update`;
-    
+
     document.getElementById('deleteUserForm').action = `/account/users/${userId}/delete`;
+
+    // Lockout Logic
+    const isLocked = btn.getAttribute('data-is-locked') === 'true';
+    document.getElementById('unlockUserForm').action = `/account/users/${userId}/unlock`;
+    document.getElementById('lockedAlert').style.display = isLocked ? 'flex' : 'none';
+    if (isLocked) {
+        document.getElementById('lockedUntilText').textContent = btn.getAttribute('data-locked-until');
+    }
 
     // Roles & Access
     if (IS_SUPERADMIN) {
@@ -339,6 +361,9 @@ document.getElementById('userModal').addEventListener('show.bs.modal', function 
                 const input = document.createElement('input');
                 input.type = 'hidden'; input.name = 'role'; input.value = role;
                 f.appendChild(input);
+                const csrfInput = document.createElement('input');
+                csrfInput.type = 'hidden'; csrfInput.name = 'csrf_token'; csrfInput.value = '{{ csrf_token() }}';
+                f.appendChild(csrfInput);
                 document.body.appendChild(f);
                 f.submit();
             });

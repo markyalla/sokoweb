@@ -48,6 +48,7 @@ def user_list():
         store_owner_ids=store_owner_ids,
         assignable_roles=ASSIGNABLE_ROLES,
         is_superadmin=is_superadmin,
+        now=datetime.utcnow(),
     )
 
 @account_bp.route('/users/<uuid:id>/update', methods=['POST'])
@@ -71,6 +72,18 @@ def update_user(id):
     
     db.session.commit()
     flash(f'User {user.full_name} updated successfully.', 'success')
+    return redirect(url_for('account.user_list'))
+
+@account_bp.route('/users/<uuid:id>/unlock', methods=['POST'])
+def unlock_user(id):
+    redir = _require_superadmin()
+    if redir:
+        return redir
+    user = User.query.get_or_404(id)
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    db.session.commit()
+    flash(f'{user.full_name} has been unlocked.', 'success')
     return redirect(url_for('account.user_list'))
 
 @account_bp.route('/users/<uuid:id>/delete', methods=['POST'])

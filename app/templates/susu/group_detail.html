@@ -16,14 +16,14 @@
     </div>
     <div class="ms-auto d-flex gap-2">
         {% if group.status == 'forming' %}
-        <form method="POST" action="{{ url_for('susu.activate_group', group_id=group.id) }}" class="d-inline">
+        <form method="POST" action="{{ url_for('susu.activate_group', group_id=group.id) }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="btn btn-sm btn-orange fw-semibold px-3" style="border-radius:10px;"
                     onclick="return confirm('Activate this group so members can start contributing?')">
                 <i class="bi bi-play-circle me-1"></i> Activate Group
             </button>
         </form>
         {% elif group.status == 'active' %}
-        <form method="POST" action="{{ url_for('susu.complete_group', group_id=group.id) }}" class="d-inline">
+        <form method="POST" action="{{ url_for('susu.complete_group', group_id=group.id) }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button class="btn btn-sm btn-outline-secondary rounded-pill px-3"
                     onclick="return confirm('Mark this group as completed?')">
                 <i class="bi bi-check-circle me-1"></i> Mark Complete

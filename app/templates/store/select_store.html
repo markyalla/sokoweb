@@ -42,7 +42,7 @@
         <div class="row g-3">
             {% for s in stores %}
             <div class="col-12 col-sm-6 col-lg-4">
-                <form method="POST" action="{{ url_for('store_owner.set_active_store', store_id=s.id) }}">
+                <form method="POST" action="{{ url_for('store_owner.set_active_store', store_id=s.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn p-0 border-0 bg-transparent w-100 text-start">
                         <div class="shop-card p-3 bg-white h-100">
                             <div class="d-flex align-items-center gap-3">

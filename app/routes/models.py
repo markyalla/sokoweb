@@ -22,6 +22,11 @@ class User(db.Model):
     is_email_verified = db.Column(db.Boolean, default=False)
     is_phone_verified = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
+    # Shared login-lockout policy (also enforced by the Go API against this
+    # same row): 5 consecutive bad passwords locks the account for 30
+    # minutes, or until a superadmin clears it early from the Users page.
+    failed_login_attempts = db.Column(db.Integer, default=0)
+    locked_until = db.Column(db.DateTime)
     last_login_at = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

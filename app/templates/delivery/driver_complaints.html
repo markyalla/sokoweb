@@ -85,7 +85,7 @@
                 <p class="small mb-1"><strong>Driver:</strong> <span id="dcModalDriverName"></span></p>
                 <p class="small mb-3" id="dcModalDescription"></p>
 
-                <form id="dcResolveForm" method="post">
+                <form id="dcResolveForm" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-2">
                         <label class="form-label small">Resolution</label>
                         <select name="status" class="form-select form-select-sm">
@@ -106,7 +106,7 @@
                 </form>
 
                 <hr>
-                <form id="dcSuspendForm" method="post">
+                <form id="dcSuspendForm" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <label class="form-label small">Suspend this driver</label>
                     <button type="submit" class="btn btn-sm btn-outline-danger w-100">Suspend Driver</button>
                 </form>

@@ -14,3 +14,5 @@ python-dotenv==1.0.1
 psycopg2-binary
 bcrypt
 email-validator==2.1.0.post1
+Flask-WTF==1.2.2
+Flask-Limiter==3.8.0

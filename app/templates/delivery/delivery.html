@@ -175,7 +175,7 @@
                         </a>
                         <form method="POST"
                               action="{{ url_for('delivery.delete_order', order_id=o.id) }}"
-                              onsubmit="return confirm('Delete this delivery order? This cannot be undone.');">
+                              onsubmit="return confirm('Delete this delivery order? This cannot be undone.');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-sm btn-outline-danger px-2 py-1">
                                 <i class="bi bi-trash"></i>
                             </button>

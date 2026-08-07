@@ -52,10 +52,10 @@
                     <td>
                         {% if item.status == 'pending' %}
                         <div class="d-flex gap-1 align-items-center">
-                            <form method="post" action="{{ url_for('sokoindex.approve_portfolio', id=item.id) }}" class="d-inline">
+                            <form method="post" action="{{ url_for('sokoindex.approve_portfolio', id=item.id) }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-success">Approve</button>
                             </form>
-                            <form method="post" action="{{ url_for('sokoindex.reject_portfolio', id=item.id) }}" class="d-inline d-flex gap-1">
+                            <form method="post" action="{{ url_for('sokoindex.reject_portfolio', id=item.id) }}" class="d-inline d-flex gap-1"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <input type="text" name="reason" class="form-control form-control-sm" placeholder="Reason" style="width:120px;">
                                 <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
                             </form>

@@ -59,7 +59,7 @@
                         </td>
                         <td>
                             <form method="POST"
-                                  action="{{ url_for('store_owner.toggle_product', product_id=p.id) }}">
+                                  action="{{ url_for('store_owner.toggle_product', product_id=p.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 {% if p.is_available %}
                                 <button type="submit" class="btn btn-sm btn-outline-danger">
                                     <i class="bi bi-toggle-on me-1"></i>Disable

@@ -120,7 +120,7 @@
               <td class="pe-3 text-end">
                 {% set _amt = "%.2f"|format(c.amount|float) %}
                 {% set _drv = row.user.full_name if row.user else 'driver' %}
-                <form method="post" action="{{ url_for('finance.driver_cashout_mark_paid', cashout_id=c.id) }}" style="display:inline;">
+                <form method="post" action="{{ url_for('finance.driver_cashout_mark_paid', cashout_id=c.id) }}" style="display:inline;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button type="submit" class="btn btn-success btn-sm mark-paid-btn"
                     data-msg="Mark GH₵ {{ _amt }} to {{ _drv }} as PAID?"
                     onclick="return confirm(this.dataset.msg)">
@@ -199,14 +199,14 @@
               <td class="pe-3 text-end">
                 {% set _amt = "%.2f"|format(c.amount|float) %}
                 {% set _sname = row.store.name if row.store else 'store' %}
-                <form method="post" action="{{ url_for('finance.shop_cashout_mark_paid', cashout_id=c.id) }}" style="display:inline;">
+                <form method="post" action="{{ url_for('finance.shop_cashout_mark_paid', cashout_id=c.id) }}" style="display:inline;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button type="submit" class="btn btn-success btn-sm mark-paid-btn"
                     data-msg="Mark GH₵ {{ _amt }} to {{ _sname }} as PAID?"
                     onclick="return confirm(this.dataset.msg)">
                     ✅ Mark Paid
                   </button>
                 </form>
-                <form method="post" action="{{ url_for('finance.shop_cashout_request_correction', cashout_id=c.id) }}" style="display:inline;" class="correction-form">
+                <form method="post" action="{{ url_for('finance.shop_cashout_request_correction', cashout_id=c.id) }}" style="display:inline;" class="correction-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <input type="hidden" name="message" value="">
                   <button type="button" class="btn btn-outline-danger btn-sm request-correction-btn" data-store="{{ _sname }}">
                     ✉️ Request Correction
@@ -412,7 +412,7 @@
             {% if d.remaining_balance > 0 %}<span class="fw-bold" style="color:#FF8000;">GH₵ {{ "%.2f"|format(d.remaining_balance) }}</span>
             {% elif d.remaining_balance < 0 %}
               <span class="text-danger fw-semibold">GH₵ {{ "%.2f"|format(d.remaining_balance) }}</span>
-              <form method="post" action="{{ url_for('finance.driver_reset_balance', driver_uid=d.uid) }}" style="display:inline;">
+              <form method="post" action="{{ url_for('finance.driver_reset_balance', driver_uid=d.uid) }}" style="display:inline;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-danger btn-sm mark-paid-btn d-block mt-1"
                   data-msg="Reset balance for {{ d.user.full_name if d.user else 'this driver' }}?\n\nThis will delete ALL cashout requests and earning records for this driver. The balance will be recalculated from their remaining completed deliveries.\n\nThis cannot be undone."
                   onclick="return confirm(this.dataset.msg)">
@@ -426,7 +426,7 @@
             {% if pending_crs %}
               {% for c in pending_crs %}
               {% set _amt = "%.2f"|format(c.amount|float) %}
-              <form method="post" action="{{ url_for('finance.driver_cashout_mark_paid', cashout_id=c.id) }}" style="display:inline;margin-bottom:3px;">
+              <form method="post" action="{{ url_for('finance.driver_cashout_mark_paid', cashout_id=c.id) }}" style="display:inline;margin-bottom:3px;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-warning btn-sm mark-paid-btn d-block mb-1"
                   data-msg="Pay GH₵ {{ _amt }} to driver?"
                   onclick="return confirm(this.dataset.msg)">
@@ -470,7 +470,7 @@
         <h6 class="modal-title fw-bold">💰 Record Store Payout</h6>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
-      <form method="post" action="{{ url_for('finance.shop_cashout_create') }}">
+      <form method="post" action="{{ url_for('finance.shop_cashout_create') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="modal-body">
           <div class="mb-3">
             <label class="form-label small fw-semibold">Store</label>
@@ -580,14 +580,14 @@
             {% if pending_crs %}
               {% for c in pending_crs %}
               {% set _amt = "%.2f"|format(c.amount|float) %}
-              <form method="post" action="{{ url_for('finance.shop_cashout_mark_paid', cashout_id=c.id) }}" style="display:inline;">
+              <form method="post" action="{{ url_for('finance.shop_cashout_mark_paid', cashout_id=c.id) }}" style="display:inline;"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-success btn-sm mark-paid-btn mb-1"
                   data-msg="Mark GH₵ {{ _amt }} as paid?"
                   onclick="return confirm(this.dataset.msg)">
                   ✅ GH₵ {{ _amt }}
                 </button>
               </form>
-              <form method="post" action="{{ url_for('finance.shop_cashout_request_correction', cashout_id=c.id) }}" style="display:inline;" class="correction-form">
+              <form method="post" action="{{ url_for('finance.shop_cashout_request_correction', cashout_id=c.id) }}" style="display:inline;" class="correction-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="message" value="">
                 <button type="button" class="btn btn-outline-danger btn-sm request-correction-btn mb-1" data-store="{{ s.store.name if s.store else 'store' }}">
                   ✉️

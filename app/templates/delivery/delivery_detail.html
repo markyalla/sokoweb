@@ -183,7 +183,7 @@
                                 <div class="d-flex gap-1 flex-wrap">
                                 <form method="post"
                                       action="{{ url_for('delivery.update_assignment_status', assignment_id=a.id) }}"
-                                      class="d-inline-flex gap-1">
+                                      class="d-inline-flex gap-1"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <select name="status" class="form-select form-select-sm" style="width:130px;">
                                         {% for s in ['pending','broadcast','assigned','accepted','picked_up','in_transit','arrived_at_customer','delivered','failed','cancelled'] %}
                                         <option value="{{ s }}" {% if a.status == s %}selected{% endif %}>
@@ -196,7 +196,7 @@
                                 <form method="post"
                                       action="{{ url_for('delivery.delete_assignment', assignment_id=a.id) }}"
                                       class="d-inline"
-                                      onsubmit="return confirm('Delete this assignment? This cannot be undone.')">
+                                      onsubmit="return confirm('Delete this assignment? This cannot be undone.')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-sm btn-outline-danger">
                                         <i class="bi bi-trash"></i>
                                     </button>
@@ -301,7 +301,7 @@
             {% endif %}
 
             {% if driver_rows %}
-            <form method="post" action="{{ url_for('delivery.assign_driver_manual', order_id=order.id) }}">
+            <form method="post" action="{{ url_for('delivery.assign_driver_manual', order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <select name="driver_id" class="form-select form-select-sm mb-2" required>
                     <option value="" disabled selected>— choose a driver —</option>
                     {% set matched = [] %}
@@ -341,7 +341,7 @@
                 </button>
             </form>
             <div class="border-top mt-3 pt-3">
-                <form method="post" action="{{ url_for('delivery.assign_nearest_driver', order_id=order.id) }}">
+                <form method="post" action="{{ url_for('delivery.assign_nearest_driver', order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
                         <i class="bi bi-geo-alt me-1"></i>Auto-assign Nearest Driver
                     </button>
@@ -349,7 +349,7 @@
             </div>
             {% else %}
             <p class="text-muted small mb-2">No active drivers found.</p>
-            <form method="post" action="{{ url_for('delivery.assign_nearest_driver', order_id=order.id) }}">
+            <form method="post" action="{{ url_for('delivery.assign_nearest_driver', order_id=order.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
                     <i class="bi bi-geo-alt me-1"></i>Auto-assign Nearest Driver
                 </button>

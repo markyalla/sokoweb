@@ -75,7 +75,7 @@
                 </div>
                 {% elif editing or available_balance >= 10 %}
                 {% set edit_max = (available_balance + active_cashout.amount|float) if editing else available_balance %}
-                <form method="POST" action="{{ url_for('store_owner.resubmit_cashout', cashout_id=active_cashout.id) if editing else url_for('store_owner.request_cashout') }}">
+                <form method="POST" action="{{ url_for('store_owner.resubmit_cashout', cashout_id=active_cashout.id) if editing else url_for('store_owner.request_cashout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label class="form-label fw-semibold small">Amount (GH₵)</label>
                         <input type="number" name="amount" step="0.01" min="10"

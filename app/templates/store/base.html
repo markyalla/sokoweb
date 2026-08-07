@@ -96,7 +96,7 @@
                             <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2">
                                 {% for s in owner_stores %}
                                 <li>
-                                    <form method="POST" action="{{ url_for('store_owner.set_active_store', store_id=s.id) }}">
+                                    <form method="POST" action="{{ url_for('store_owner.set_active_store', store_id=s.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" class="dropdown-item d-flex align-items-center justify-content-between {% if s.id|string == active_store_id %}active{% endif %}">
                                             {{ s.name }}
                                             {% if s.id|string == active_store_id %}<i class="bi bi-check2"></i>{% endif %}

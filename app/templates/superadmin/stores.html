@@ -114,7 +114,7 @@
                 <i class="bi bi-pencil"></i>
               </button>
               <form action="{{ url_for('shopper.delete_store', id=store.id) }}" method="POST"
-                    onsubmit="return confirm('Permanently delete \'{{ store.name }}\'? This cannot be undone.')">
+                    onsubmit="return confirm('Permanently delete \'{{ store.name }}\'? This cannot be undone.')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-sm btn-outline-danger">
                   <i class="bi bi-trash"></i>
                 </button>
@@ -142,7 +142,7 @@
         <h5 class="modal-title fw-bold">Add New Store</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-      <form action="{{ url_for('shopper.add_store') }}" method="POST">
+      <form action="{{ url_for('shopper.add_store') }}" method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="modal-body px-4">
           <div class="row g-3">
             <div class="col-12">
@@ -235,7 +235,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <form id="editStoreForm" action="" method="POST"
-            data-action-template="{{ url_for('shopper.edit_store', id='00000000-0000-0000-0000-000000000000') }}">
+            data-action-template="{{ url_for('shopper.edit_store', id='00000000-0000-0000-0000-000000000000') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="modal-body px-4">
           <div class="row g-3">
             <div class="col-12">

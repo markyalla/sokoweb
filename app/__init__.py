@@ -1,10 +1,15 @@
 from flask import Flask, session, g
 from flask_sqlalchemy import SQLAlchemy
+from flask_wtf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 import jwt
 from datetime import datetime, timedelta, timezone
 from config import Config
 
 db = SQLAlchemy()
+csrf = CSRFProtect()
+limiter = Limiter(key_func=get_remote_address)
 
 def get_full_url(path):
     from flask import current_app
@@ -23,6 +28,8 @@ def create_app():
     app.config.from_object(Config)
 
     db.init_app(app)
+    csrf.init_app(app)
+    limiter.init_app(app)
 
     @app.before_request
     def load_logged_in_user():

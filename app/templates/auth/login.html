@@ -10,14 +10,17 @@
                 <h3 class="fw-bold text-dark">Super Admin</h3>
                 <p class="text-muted">Enter your credentials to access the panel</p>
             </div>
-            <form method="POST">
+            <form method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-floating mb-3">
                     <input type="text" name="identifier" class="form-control" id="idInput" placeholder="Email or Phone" required>
                     <label for="idInput">Email or Phone</label>
                 </div>
-                <div class="form-floating mb-4">
+                <div class="form-floating mb-2">
                     <input type="password" name="password" class="form-control" id="pwInput" placeholder="Password" required>
                     <label for="pwInput">Password</label>
+                </div>
+                <div class="text-end mb-4">
+                    <a href="{{ url_for('auth.forgot_password') }}" class="text-decoration-none small">Forgot password?</a>
                 </div>
                 <button type="submit" class="btn btn-primary btn-lg w-100 mb-3" style="border-radius: 0.5rem;">Login</button>
                 {% if registration_open %}
