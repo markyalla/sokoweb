@@ -669,3 +669,30 @@ class SokoIndexCustomerUnlock(db.Model):
 
     def get_user(self):
         return User.query.get(self.user_id)
+
+
+class AuditLog(db.Model):
+    """Shared with sokoApp (Go) — both write directly to this same table in
+    sokoaccount, so the Audit Log admin page can show activity/failures from
+    either service without a cross-service API call. See sokoApp's
+    internal/audit package and internal/models/account.go for the Go side
+    of this same schema; keep both in sync if it changes."""
+    __bind_key__ = 'account'
+    __tablename__ = 'audit_logs'
+    id = db.Column(db.BigInteger, primary_key=True)
+    category = db.Column(db.String(30), nullable=False)   # admin_action | payment_failure | order_stuck | job_failure | api_error
+    severity = db.Column(db.String(20), nullable=False)   # info | warning | error | critical
+    user_id = db.Column(UUID(as_uuid=True))
+    actor_label = db.Column(db.String(150))
+    action = db.Column(db.String(100), nullable=False)
+    entity_type = db.Column(db.String(100))
+    entity_id = db.Column(UUID(as_uuid=True))
+    message = db.Column(db.Text)
+    old_value = db.Column(JSONB)
+    new_value = db.Column(JSONB)
+    metadata_json = db.Column('metadata', JSONB)  # 'metadata' is reserved on db.Model, so the Python attribute is renamed
+    request_path = db.Column(db.String(255))
+    status_code = db.Column(db.Integer)
+    ip_address = db.Column(db.String)  # inet on the Go side; plain string read here is fine
+    user_agent = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

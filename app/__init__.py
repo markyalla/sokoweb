@@ -1,4 +1,4 @@
-from flask import Flask, session, g
+from flask import Flask, session, g, request, got_request_exception
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import CSRFProtect
 from flask_limiter import Limiter
@@ -40,6 +40,63 @@ def create_app():
         else:
             g.user = db.session.get(User, user_id)
 
+    # Captures the actual exception object for unhandled errors (Flask's
+    # own signal, fired before the 500 response is finalized) so the audit
+    # entry logged below can include a real message instead of just "500".
+    @got_request_exception.connect_via(app)
+    def _capture_exception_for_audit(sender, exception, **extra):
+        g.audit_exception = exception
+
+    _ADMIN_MUTATING_METHODS = {'POST', 'PUT', 'PATCH', 'DELETE'}
+
+    @app.after_request
+    def audit_requests(response):
+        """Generic activity log for two overlapping concerns that would
+        otherwise be invisible: every mutating request made by a staff/admin
+        user (a "who did what" trail covering every current and future admin
+        route without instrumenting each one individually), and every 5xx
+        response (an API-error feed). A mutating admin request that also
+        fails is logged once, as an admin_action at error/critical severity,
+        not twice. Mirrors sokoApp's internal/middleware/audit.go Gin
+        middleware — see there for the Go-side equivalent."""
+        from app.audit import (
+            log_audit, CATEGORY_ADMIN_ACTION, CATEGORY_API_ERROR,
+            SEVERITY_INFO, SEVERITY_WARNING, SEVERITY_ERROR, SEVERITY_CRITICAL,
+            ADMIN_ROLES,
+        )
+
+        user = getattr(g, 'user', None)
+        roles = [r.role for r in user.roles] if user else []
+        is_admin = any(r in ADMIN_ROLES for r in roles)
+
+        should_log_admin_action = is_admin and request.method in _ADMIN_MUTATING_METHODS
+        should_log_api_error = response.status_code >= 500
+        if not should_log_admin_action and not should_log_api_error:
+            return response
+
+        exc = getattr(g, 'audit_exception', None)
+        if exc is not None:
+            severity = SEVERITY_CRITICAL
+        elif response.status_code >= 500:
+            severity = SEVERITY_ERROR
+        elif response.status_code >= 400:
+            severity = SEVERITY_WARNING
+        else:
+            severity = SEVERITY_INFO
+
+        log_audit(
+            category=CATEGORY_ADMIN_ACTION if should_log_admin_action else CATEGORY_API_ERROR,
+            severity=severity,
+            action=f"{request.method} {request.endpoint or request.path}",
+            user=user,
+            message=f"{type(exc).__name__}: {exc}" if exc else None,
+            request_path=request.path,
+            status_code=response.status_code,
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent'),
+        )
+        return response
+
     # Register resolve_media as a global template function
     app.add_template_global(get_full_url, 'resolve_media')
 
@@ -76,6 +133,7 @@ def create_app():
     from app.routes.sokoindex import sokoindex_bp
     from app.routes.drivers import drivers_bp
     from app.routes.pricing import pricing_bp
+    from app.routes.audit import audit_bp
 
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(shopper_bp, url_prefix='/shopper')
@@ -88,6 +146,7 @@ def create_app():
     app.register_blueprint(sokoindex_bp, url_prefix='/sokoindex')
     app.register_blueprint(drivers_bp, url_prefix='/drivers')
     app.register_blueprint(pricing_bp, url_prefix='/pricing')
+    app.register_blueprint(audit_bp, url_prefix='/audit')
 
     # Create any missing tables (e.g. shop_cashout_requests, driver_cashout_requests)
     # that Go's GORM AutoMigrate would normally create on next restart.

@@ -104,6 +104,13 @@
                 <a href="#" class="nav-link"><i class="bi bi-wallet2"></i> Bank</a>
                 <a href="#" class="nav-link"><i class="bi bi-cash-stack"></i> Loans</a>
                 {% endif %}
+                {% if is_super %}
+                <div class="px-4 mt-4 mb-2 small text-uppercase text-muted fw-semibold" style="letter-spacing: 0.05rem;">Monitoring</div>
+                <a href="{{ url_for('audit.index') }}" class="nav-link d-flex align-items-center {% if request.endpoint and request.endpoint.startswith('audit.') %}active{% endif %}">
+                    <i class="bi bi-journal-text"></i> Audit Log
+                    <span id="auditCriticalBadge" class="badge rounded-pill bg-danger ms-auto" style="display:none;">0</span>
+                </a>
+                {% endif %}
                 {% if is_super or 'sokosusu_admin' in my_roles %}
                 <a href="{{ url_for('susu.index') }}" class="nav-link {% if 'susu' in request.endpoint %}active{% endif %}"><i class="bi bi-piggy-bank"></i> Susu</a>
                 {% endif %}
@@ -331,6 +338,33 @@
             }
 
             connect();
+        })();
+
+        // Audit Log sidebar badge — independent of the websocket/polling
+        // above (no need for realtime here, a 30s poll is plenty). Only
+        // does anything if the badge element exists, which only renders
+        // for superadmins.
+        (function () {
+            const badge = document.getElementById('auditCriticalBadge');
+            if (!badge) return;
+
+            function pollAuditCount() {
+                fetch("{{ url_for('audit.api_critical_count') }}")
+                    .then(r => r.ok ? r.json() : null)
+                    .then(data => {
+                        if (!data) return;
+                        if (data.count > 0) {
+                            badge.textContent = data.count;
+                            badge.style.display = '';
+                        } else {
+                            badge.style.display = 'none';
+                        }
+                    })
+                    .catch(() => {});
+            }
+
+            pollAuditCount();
+            setInterval(pollAuditCount, 30000);
         })();
     </script>
     {% endif %}

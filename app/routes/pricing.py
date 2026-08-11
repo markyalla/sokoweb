@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, g, redirect, url_for, request, flash
 from app.routes.models import HolidayPricingSetting
 from app import db
+from app.audit import log_audit, CATEGORY_ADMIN_ACTION, SEVERITY_INFO
 
 pricing_bp = Blueprint('pricing', __name__)
 
@@ -63,9 +64,22 @@ def update_holiday_pricing():
         flash('Surcharge must be between 0 and 100 percent.', 'danger')
         return redirect(url_for('pricing.holiday_pricing'))
 
+    old_value = {'enabled': setting.enabled, 'surcharge_pct': setting.surcharge_pct}
     setting.surcharge_pct = pct_val
     setting.enabled = request.form.get('enabled') == 'on'
     db.session.commit()
+
+    # Revenue-affecting and easy to forget was changed — a generic
+    # "POST /pricing/holiday/update" log line wouldn't say what actually
+    # changed, so this logs the before/after explicitly.
+    log_audit(
+        category=CATEGORY_ADMIN_ACTION, severity=SEVERITY_INFO,
+        action='holiday_pricing_updated', user=g.user,
+        entity_type='holiday_pricing_setting', entity_id=setting.id,
+        old_value=old_value,
+        new_value={'enabled': setting.enabled, 'surcharge_pct': setting.surcharge_pct},
+        message=f'Ghana holiday pricing {"enabled" if setting.enabled else "disabled"} at {pct_val:.0f}% surcharge',
+    )
 
     flash(f'Ghana holiday pricing {"enabled" if setting.enabled else "disabled"} '
           f'at {pct_val:.0f}% surcharge.', 'success')
