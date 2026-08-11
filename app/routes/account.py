@@ -12,7 +12,7 @@ account_bp = Blueprint('account', __name__)
 # 'user'/'driver'/'artisan' are assigned elsewhere (registration / driver approval / artisan flow).
 ASSIGNABLE_ROLES = [
     'superadmin', 'sokoshopper_admin', 'sokodelivery_admin',
-    'sokoloan_admin', 'sokosusu_admin', 'sokobank_admin',
+    'sokoloan_admin', 'sokosusu_admin',
 ]
 
 

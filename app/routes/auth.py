@@ -86,7 +86,7 @@ def login():
             # Routing: admins → admin dashboard; store owners → shop portal
             admin_roles = (
                 'superadmin', 'sokoshopper_admin', 'sokodelivery_admin',
-                'sokoloan_admin', 'sokosusu_admin', 'sokobank_admin',
+                'sokoloan_admin', 'sokosusu_admin',
             )
             roles = [r.role for r in user.roles]
             is_admin = any(r in roles for r in admin_roles)

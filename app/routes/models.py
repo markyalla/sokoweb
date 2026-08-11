@@ -407,29 +407,6 @@ class HolidayPricingSetting(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 # ----------------------------------------------------------------
-# BANK DATABASE (sokobank)
-# ----------------------------------------------------------------
-class BankAccount(db.Model):
-    __bind_key__ = 'bank'
-    __tablename__ = 'bank_accounts'
-    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = db.Column(UUID(as_uuid=True), nullable=False)
-    balance = db.Column(db.Numeric(15, 2), default=0.00)
-    currency = db.Column(db.String(3), default='GHS')
-    status = db.Column(db.String(20), default='active')
-
-class Transaction(db.Model):
-    __bind_key__ = 'bank'
-    __tablename__ = 'transactions'
-    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    account_id = db.Column(UUID(as_uuid=True), nullable=False)
-    amount = db.Column(db.Numeric(15, 2))
-    type = db.Column(db.String(20)) # credit, debit
-    description = db.Column(db.String(255))
-    reference = db.Column(db.String(100))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-# ----------------------------------------------------------------
 # SUSU DATABASE (sokosusu)
 # ----------------------------------------------------------------
 class SusuGroup(db.Model):

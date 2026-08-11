@@ -48,6 +48,5 @@ class Config:
         'delivery':  get_uri('sokodelivery'),
         'loan':      get_uri('sokoloan'),
         'susu':      get_uri('sokosusu'),
-        'bank':      get_uri('sokobank'),
         'sokoindex': get_uri('sokoindex'),
     }
