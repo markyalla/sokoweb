@@ -1,0 +1,24 @@
+# Install: sudo cp deploy/sokoweb.service /etc/systemd/system/sokoweb.service
+# Then:    sudo systemctl daemon-reload && sudo systemctl enable --now sokoweb
+#
+# Bound to 127.0.0.1 only — Caddy (admin.theagbeko.com) is the only intended
+# entry point; port 5000 should never be reachable directly from the internet.
+
+[Unit]
+Description=SokoWeb Flask Admin (Gunicorn)
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/sokoweb
+ExecStart=/root/sokoweb/venv/bin/gunicorn -w 2 -b 127.0.0.1:5000 "app:create_app()"
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sokoweb
+
+[Install]
+WantedBy=multi-user.target

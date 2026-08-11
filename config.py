@@ -25,6 +25,15 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     API_BASE_URL = os.environ.get('API_BASE_URL', 'http://192.168.2.195:8082')
 
+    # Flask-Limiter's default storage is in-process memory, counted separately
+    # per Gunicorn worker — with -w 2, a "10 per minute" limit becomes ~20 per
+    # minute in practice. REDIS_URL points it at the same Redis instance the
+    # Go backend already runs (docker-compose exposes it on 127.0.0.1:6379),
+    # using a separate logical DB (/1) to keep its keys apart from Asynq's.
+    # Falls back to memory:// for local dev where Redis may not be running.
+    REDIS_URL = os.environ.get('REDIS_URL')
+    RATELIMIT_STORAGE_URI = REDIS_URL or 'memory://'
+
     # Session cookie hardening — defense-in-depth alongside CSRFProtect.
     # SECURE is env-driven so local HTTP dev still works; set FLASK_ENV=production
     # (or COOKIE_SECURE=true) once served over HTTPS.
