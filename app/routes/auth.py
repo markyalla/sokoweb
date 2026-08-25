@@ -17,6 +17,18 @@ MAX_LOGIN_ATTEMPTS = 5
 LOGIN_LOCKOUT_MINUTES = 30
 
 
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _normalize_utc(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 def _lockout_message(locked_until) -> str:
     return (
         f"Account locked due to too many failed login attempts. "
@@ -45,7 +57,8 @@ def login():
             (User.email == identifier) | (User.phone_number == identifier)
         ).first()
 
-        if user and user.locked_until and user.locked_until > datetime.utcnow():
+        now_utc = _utc_now()
+        if user and user.locked_until and _normalize_utc(user.locked_until) > now_utc:
             flash(_lockout_message(user.locked_until), 'danger')
             return render_template('auth/login.html', registration_open=(User.query.count() == 0))
 
@@ -108,7 +121,7 @@ def login():
         if user:
             user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
             if user.failed_login_attempts >= MAX_LOGIN_ATTEMPTS:
-                user.locked_until = datetime.utcnow() + timedelta(minutes=LOGIN_LOCKOUT_MINUTES)
+                user.locked_until = _utc_now() + timedelta(minutes=LOGIN_LOCKOUT_MINUTES)
                 db.session.commit()
                 flash(_lockout_message(user.locked_until), 'danger')
             else:
