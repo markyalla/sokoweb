@@ -30,9 +30,10 @@ def _normalize_utc(dt: datetime | None) -> datetime | None:
 
 
 def _lockout_message(locked_until) -> str:
+    locked_until = _normalize_utc(locked_until)
     return (
         f"Account locked due to too many failed login attempts. "
-        f"Try again after {locked_until.strftime('%I:%M %p')}, use 'Forgot password?' below to reset it "
+        f"Try again after {locked_until.strftime('%I:%M %p')} UTC, use 'Forgot password?' below to reset it "
         f"and regain access immediately, or ask a superadmin to unlock it."
     )
 

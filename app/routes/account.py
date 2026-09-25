@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, g, redirect, url_for, flash, request, current_app
 from app.routes.models import User, KYCSubmission, DriverProfile, UserRole, KYCDocument
 from PIL import Image
-from datetime import datetime
+from datetime import datetime, timezone
 from app import db
 from sqlalchemy.orm import joinedload
 import os
@@ -48,7 +48,9 @@ def user_list():
         store_owner_ids=store_owner_ids,
         assignable_roles=ASSIGNABLE_ROLES,
         is_superadmin=is_superadmin,
-        now=datetime.utcnow(),
+        # Aware UTC: locked_until is timestamptz (created by the Go API), so a
+        # naive now would raise TypeError on comparison in the template.
+        now=datetime.now(timezone.utc),
     )
 
 @account_bp.route('/users/<uuid:id>/update', methods=['POST'])

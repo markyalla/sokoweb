@@ -1,4 +1,4 @@
-from flask import Flask, session, g, request, got_request_exception
+from flask import Flask, session, g, request, got_request_exception, flash, redirect
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import CSRFProtect
 from flask_limiter import Limiter
@@ -96,6 +96,17 @@ def create_app():
             user_agent=request.headers.get('User-Agent'),
         )
         return response
+
+    @app.errorhandler(429)
+    def rate_limited(e):
+        """Flask-Limiter otherwise returns Werkzeug's bare "Too Many Requests"
+        page. Limits are POST-only, so bounce back to the same page via GET
+        with a flash message instead."""
+        message = f"Too many attempts ({e.description}). Please wait a minute and try again."
+        if request.method == 'GET' or request.is_json or request.accept_mimetypes.best == 'application/json':
+            return {'error': message}, 429
+        flash(message, 'warning')
+        return redirect(request.full_path.rstrip('?'))
 
     # Register resolve_media as a global template function
     app.add_template_global(get_full_url, 'resolve_media')

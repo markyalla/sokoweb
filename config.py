@@ -41,6 +41,10 @@ class Config:
     SESSION_COOKIE_SAMESITE = 'Lax'
     SESSION_COOKIE_SECURE = os.environ.get('FLASK_ENV') == 'production' or os.environ.get('COOKIE_SECURE', '').lower() == 'true'
 
+    # Match the Go API's DSN (TimeZone=UTC) so timestamptz columns come back
+    # in UTC and naive utcnow() comparisons are interpreted as UTC too.
+    SQLALCHEMY_ENGINE_OPTIONS = {'connect_args': {'options': '-c timezone=UTC'}}
+
     SQLALCHEMY_DATABASE_URI = get_uri('sokoaccount')
     SQLALCHEMY_BINDS = {
         'account':   get_uri('sokoaccount'),
