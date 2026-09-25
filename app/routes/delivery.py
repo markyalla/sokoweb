@@ -433,6 +433,9 @@ def assign_driver_manual(order_id):
 
     db.session.commit()
 
+    from app.messaging import notify_offline_driver
+    notify_offline_driver(driver_id, f"parcel PD-{str(assignment.id)[:8].upper()}")
+
     driver_user = User.query.get(driver_id)
     name = driver_user.full_name if driver_user else str(driver_id)[:8]
     flash(f'Driver "{name}" assigned successfully.', 'success')
@@ -546,6 +549,9 @@ def assign_nearest_driver(order_id):
     nearest.is_available = False
 
     db.session.commit()
+
+    from app.messaging import notify_offline_driver
+    notify_offline_driver(nearest.user_id, f"parcel PD-{str(assignment.id)[:8].upper()}")
 
     flash(f'Nearest driver assigned — {distance_km:.1f} km from pickup.', 'success')
     return redirect(url_for('delivery.order_detail', order_id=order_id))

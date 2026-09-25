@@ -94,6 +94,13 @@
                 {% endif %}
 
                 {% if is_super %}
+                <div class="px-4 mt-4 mb-2 small text-uppercase text-muted fw-semibold" style="letter-spacing: 0.05rem;">Communication</div>
+                <a href="{{ url_for('messaging.index') }}" class="nav-link {% if request.endpoint and request.endpoint.startswith('messaging.') %}active{% endif %}">
+                    <i class="bi bi-megaphone"></i> Messaging
+                </a>
+                {% endif %}
+
+                {% if is_super %}
                 <div class="px-4 mt-4 mb-2 small text-uppercase text-muted fw-semibold" style="letter-spacing: 0.05rem;">Finance</div>
                 <a href="{{ url_for('finance.track_expenses') }}" class="nav-link {% if 'finance' in request.endpoint %}active{% endif %}">
                     <i class="bi bi-bar-chart-line"></i> Track Expenses

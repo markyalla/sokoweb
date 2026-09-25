@@ -449,6 +449,9 @@ def assign_driver(order_id):
         apply_assignment(assignment)
         db.session.commit()
 
+    from app.messaging import notify_offline_driver
+    notify_offline_driver(driver_uuid, f"order FD-{str(order.id)[:8].upper()}")
+
     flash('Driver assigned successfully!', 'success')
     return redirect(request.referrer)
 

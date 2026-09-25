@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  .page-hero { background:#FF8000;color:#fff;border-radius:16px;padding:20px 28px;margin-bottom:24px; }
+  .btn-orange { background:#FF8000!important;border-color:#FF8000!important;color:#fff!important; }
+  .btn-orange:hover { background:#e07000!important;border-color:#e07000!important; }
+  .card { border:none;border-radius:14px; }
+</style>
+
+<div class="page-hero d-flex align-items-center justify-content-between flex-wrap gap-2">
+  <div>
+    <h4 class="mb-1"><i class="bi bi-megaphone me-2"></i>Messaging</h4>
+    <div class="small opacity-75">Send SMS (Arkesel) and email to customers and drivers.</div>
+  </div>
+  <div class="small">
+    <span class="badge {{ 'bg-success' if sms_ready else 'bg-danger' }}">SMS {{ 'ready' if sms_ready else 'not configured' }}</span>
+    <span class="badge {{ 'bg-success' if email_ready else 'bg-danger' }}">Email {{ 'ready' if email_ready else 'not configured' }}</span>
+  </div>
+</div>
+
+{% if not sms_ready or not email_ready %}
+<div class="alert alert-warning small">
+  {% if not sms_ready %}Set <code>ARKESEL_API_KEY</code> and <code>ARKESEL_SENDER_ID</code> in SokoWeb's <code>.env</code> and restart to enable SMS. {% endif %}
+  {% if not email_ready %}Set <code>SMTP_HOST</code>, <code>SMTP_PORT</code>, <code>SMTP_USER</code>, <code>SMTP_PASS</code> and <code>SMTP_FROM</code> to enable email.{% endif %}
+</div>
+{% endif %}
+
+<div class="card shadow-sm">
+  <div class="card-body p-4">
+    <form method="POST" id="msgForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Send to</label>
+          <select name="audience" id="audience" class="form-select" required>
+            {% for key, label in audiences.items() %}
+            <option value="{{ key }}">{{ label }}{% if key in counts %} ({{ counts[key] }}){% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Channel</label>
+          <select name="channel" id="channel" class="form-select">
+            <option value="sms">SMS only</option>
+            <option value="email">Email only</option>
+            <option value="both">SMS and email</option>
+          </select>
+        </div>
+
+        <div class="col-12" id="singleWrap" style="display:none">
+          <label class="form-label fw-semibold">User's phone number or email</label>
+          <input type="text" name="single_target" class="form-control" placeholder="e.g. 0241234567 or kofi@example.com">
+        </div>
+        <div class="col-12" id="customWrap" style="display:none">
+          <label class="form-label fw-semibold">Phone numbers and/or emails</label>
+          <textarea name="custom_list" rows="4" class="form-control" placeholder="One per line or comma-separated"></textarea>
+        </div>
+
+        <div class="col-12" id="smsWrap">
+          <label class="form-label fw-semibold">SMS message</label>
+          <textarea name="sms_text" id="smsText" rows="4" maxlength="{{ sms_max }}" class="form-control"
+                    placeholder="Keep it short — 160 characters is one SMS."></textarea>
+          <div class="form-text"><span id="smsCount">0</span> characters · <span id="smsParts">0</span> SMS part(s) per recipient</div>
+        </div>
+
+        <div class="col-12" id="emailWrap" style="display:none">
+          <label class="form-label fw-semibold">Email subject</label>
+          <input type="text" name="subject" class="form-control mb-2" maxlength="150">
+          <label class="form-label fw-semibold">Email message</label>
+          <textarea name="email_body" rows="8" class="form-control" placeholder="Plain text"></textarea>
+        </div>
+      </div>
+
+      <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-orange"><i class="bi bi-send me-1"></i>Send</button>
+        <a href="{{ url_for('audit.index') }}" class="btn btn-outline-secondary">View send results in Audit Log</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  const audience = document.getElementById('audience');
+  const channel = document.getElementById('channel');
+  const show = (id, on) => { document.getElementById(id).style.display = on ? '' : 'none'; };
+  function refresh() {
+    show('singleWrap', audience.value === 'single');
+    show('customWrap', audience.value === 'custom');
+    show('smsWrap', channel.value !== 'email');
+    show('emailWrap', channel.value !== 'sms');
+  }
+  audience.addEventListener('change', refresh);
+  channel.addEventListener('change', refresh);
+  refresh();
+
+  const sms = document.getElementById('smsText');
+  sms.addEventListener('input', () => {
+    const n = sms.value.length;
+    document.getElementById('smsCount').textContent = n;
+    document.getElementById('smsParts').textContent = n === 0 ? 0 : (n <= 160 ? 1 : Math.ceil(n / 153));
+  });
+
+  document.getElementById('msgForm').addEventListener('submit', (e) => {
+    const who = audience.options[audience.selectedIndex].text;
+    const how = channel.options[channel.selectedIndex].text;
+    if (!confirm(`Send ${how} to: ${who}?\n\nThis cannot be undone.`)) e.preventDefault();
+  });
+})();
+</script>
+{% endblock %}

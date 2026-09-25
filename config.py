@@ -45,6 +45,18 @@ class Config:
     # in UTC and naive utcnow() comparisons are interpreted as UTC too.
     SQLALCHEMY_ENGINE_OPTIONS = {'connect_args': {'options': '-c timezone=UTC'}}
 
+    # Arkesel SMS (https://sms.arkesel.com) — API key and approved sender ID
+    # (max 11 characters) from the Arkesel dashboard.
+    ARKESEL_API_KEY = os.environ.get('ARKESEL_API_KEY', '')
+    ARKESEL_SENDER_ID = os.environ.get('ARKESEL_SENDER_ID', '')
+
+    # Email — same SMTP settings the Go API uses for OTP emails.
+    SMTP_HOST = os.environ.get('SMTP_HOST', '')
+    SMTP_PORT = os.environ.get('SMTP_PORT', '587')
+    SMTP_USER = os.environ.get('SMTP_USER', '')
+    SMTP_PASS = os.environ.get('SMTP_PASS', '')
+    SMTP_FROM = os.environ.get('SMTP_FROM', '')
+
     SQLALCHEMY_DATABASE_URI = get_uri('sokoaccount')
     SQLALCHEMY_BINDS = {
         'account':   get_uri('sokoaccount'),
