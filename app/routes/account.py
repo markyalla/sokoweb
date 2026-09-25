@@ -1,10 +1,14 @@
-from flask import Blueprint, render_template, g, redirect, url_for, flash, request, current_app
+from flask import Blueprint, render_template, g, redirect, url_for, flash, request, current_app, abort, Response
 from app.routes.models import User, KYCSubmission, DriverProfile, UserRole, KYCDocument
 from PIL import Image
 from datetime import datetime, timezone
 from app import db
 from sqlalchemy.orm import joinedload
 import os
+import re
+from datetime import timedelta
+import jwt
+import requests
 
 account_bp = Blueprint('account', __name__)
 
@@ -165,8 +169,7 @@ def kyc_list():
     if redir:
         return redir
     submissions = KYCSubmission.query.order_by(KYCSubmission.status.desc()).all()
-    media_base_url = f"{os.getenv('API_BASE_URL', 'http://localhost:8082')}/api/v1/media/serve/"
-    return render_template('auth/kyc.html', submissions=submissions, media_base_url=media_base_url)
+    return render_template('auth/kyc.html', submissions=submissions)
 
 @account_bp.route('/kyc/<uuid:id>/approve', methods=['POST'])
 def approve_kyc(id):
@@ -227,3 +230,60 @@ def suspend_driver(id):
     db.session.commit()
     flash(f'Driver account for {profile.user.full_name} has been suspended.', 'danger')
     return redirect(url_for('account.user_list'))
+
+_KYC_FILE_RE = re.compile(r'[A-Za-z0-9._-]+')
+
+
+def _kyc_filename(path):
+    """Return the bare filename of a stored "kyc/<file>" path, or None."""
+    if not path:
+        return None
+    p = str(path)
+    if '/media/serve/' in p:
+        p = p.split('/media/serve/', 1)[1]
+    p = p.lstrip('/')
+    if not p.startswith('kyc/'):
+        return None
+    name = p[len('kyc/'):]
+    return name if _KYC_FILE_RE.fullmatch(name) else None
+
+
+@account_bp.app_template_filter('kyc_media')
+def kyc_media_filter(path):
+    name = _kyc_filename(path)
+    return url_for('account.kyc_media', subpath=name) if name else ''
+
+
+@account_bp.route('/kyc-media/<path:subpath>')
+def kyc_media(subpath):
+    """Staff-only proxy for identity documents. The Go API no longer serves the
+    private "kyc" bucket publicly, so SokoWeb fetches the file server-side with
+    a short-lived admin token and streams it back — the document URL never
+    works outside an authenticated admin session."""
+    from app.audit import ADMIN_ROLES
+    if not g.user:
+        return redirect(url_for('auth.login'))
+    roles = [r.role for r in g.user.roles]
+    if not any(r in ADMIN_ROLES for r in roles):
+        abort(403)
+    if not _KYC_FILE_RE.fullmatch(subpath):
+        abort(404)
+
+    token = jwt.encode(
+        {'sub': str(g.user.id), 'roles': roles,
+         'exp': datetime.now(timezone.utc) + timedelta(seconds=60)},
+        current_app.config['JWT_SECRET'], algorithm='HS256',
+    )
+    if isinstance(token, bytes):
+        token = token.decode('utf-8')
+    api_base = current_app.config.get('API_BASE_URL', '').rstrip('/')
+    try:
+        resp = requests.get(f'{api_base}/api/v1/media/serve/kyc/{subpath}',
+                            headers={'Authorization': f'Bearer {token}'}, timeout=15)
+    except requests.RequestException as e:
+        current_app.logger.error(f'[kyc_media] backend fetch failed: {e}')
+        abort(502)
+    if resp.status_code != 200:
+        abort(404)
+    return Response(resp.content, mimetype=resp.headers.get('Content-Type', 'application/octet-stream'),
+                    headers={'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff'})

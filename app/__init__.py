@@ -6,6 +6,7 @@ from flask_limiter.util import get_remote_address
 import jwt
 from datetime import datetime, timedelta, timezone
 from config import Config
+import os
 
 db = SQLAlchemy()
 csrf = CSRFProtect()
@@ -27,6 +28,11 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
+    # The fallback secret in config.py is public (it's in the repo). Using it
+    # in production would let anyone forge sessions and backend JWTs.
+    if os.environ.get('FLASK_ENV') == 'production' and app.config['SECRET_KEY'] == 'dev-secret-key-123':
+        raise RuntimeError('JWT_SECRET must be set to a strong secret in production')
+
     db.init_app(app)
     csrf.init_app(app)
     limiter.init_app(app)
@@ -39,6 +45,10 @@ def create_app():
             g.user = None
         else:
             g.user = db.session.get(User, user_id)
+            # Deactivated or deleted accounts lose their existing session too.
+            if g.user and (g.user.is_active is False or getattr(g.user, 'is_deleted', False)):
+                session.clear()
+                g.user = None
 
     # Captures the actual exception object for unhandled errors (Flask's
     # own signal, fired before the 500 response is finalized) so the audit
@@ -107,6 +117,15 @@ def create_app():
             return {'error': message}, 429
         flash(message, 'warning')
         return redirect(request.full_path.rstrip('?'))
+
+    @app.after_request
+    def security_headers(response):
+        # Clickjacking, MIME sniffing and referrer leakage protection for the
+        # admin panel. HSTS is left to Caddy, which terminates TLS.
+        response.headers.setdefault('X-Frame-Options', 'DENY')
+        response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+        response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+        return response
 
     # Register resolve_media as a global template function
     app.add_template_global(get_full_url, 'resolve_media')

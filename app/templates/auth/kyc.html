@@ -47,9 +47,9 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if sub.id_image_url %}
-                        <a href="{{ media_base_url }}{{ sub.id_image_url }}" target="_blank" rel="noopener">
-                            <img src="{{ media_base_url }}{{ sub.id_image_url }}"
+                        {% if sub.id_image_url|kyc_media %}
+                        <a href="{{ sub.id_image_url|kyc_media }}" target="_blank" rel="noopener">
+                            <img src="{{ sub.id_image_url|kyc_media }}"
                                  alt="ID"
                                  style="height:40px;width:64px;object-fit:cover;border-radius:6px;border:1px solid #dee2e6;">
                         </a>

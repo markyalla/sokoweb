@@ -22,6 +22,7 @@ class User(db.Model):
     is_email_verified = db.Column(db.Boolean, default=False)
     is_phone_verified = db.Column(db.Boolean, default=False)
     is_active = db.Column(db.Boolean, default=True)
+    is_deleted = db.Column(db.Boolean, default=False)  # set by account deletion (Go API)
     # Shared login-lockout policy (also enforced by the Go API against this
     # same row): 5 consecutive bad passwords locks the account for 30
     # minutes, or until a superadmin clears it early from the Users page.

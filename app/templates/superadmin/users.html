@@ -278,6 +278,28 @@
 </div>
 
 <script>
+// KYC files are private: they're fetched through SokoWeb's staff-only proxy
+// (never straight from the public media URL). Only plain "kyc/<file>" storage
+// paths are accepted, so a crafted value can't become a javascript: or
+// off-site link.
+const KYC_MEDIA_BASE = "{{ url_for('account.kyc_media', subpath='_')[:-1] }}";
+function kycMediaUrl(path) {
+    if (!path) return '';
+    let p = String(path);
+    const i = p.indexOf('/media/serve/');
+    if (i >= 0) p = p.substring(i + '/media/serve/'.length);
+    p = p.replace(/^\/+/, '');
+    if (!/^kyc\/[A-Za-z0-9._-]+$/.test(p)) return '';
+    return KYC_MEDIA_BASE + p.substring('kyc/'.length);
+}
+function kycDetailRow(label, value) {
+    const div = document.createElement('div');
+    const strong = document.createElement('strong');
+    strong.textContent = label + ': ';
+    div.append(strong, document.createTextNode(value));
+    return div;
+}
+
 const IS_SUPERADMIN = {{ 'true' if is_superadmin else 'false' }};
 const ASSIGNABLE_ROLES = {{ assignable_roles|tojson }};
 
@@ -402,20 +424,24 @@ function showUserModal(userId) {
         kycStatusBadge.textContent = kyc.status.charAt(0).toUpperCase() + kyc.status.slice(1);
 
         // Details
-        kycDetails.innerHTML = `
-            <div><strong>ID Type:</strong> ${kyc.id_type || '—'}</div>
-            <div><strong>ID Number:</strong> ${kyc.id_number || '—'}</div>
-            <div><strong>Submitted:</strong> ${kyc.submitted_at ? new Date(kyc.submitted_at).toLocaleDateString() : '—'}</div>
-        `;
+        // Built with textContent — id_number etc. are user-supplied.
+        kycDetails.replaceChildren(
+            kycDetailRow('ID Type', kyc.id_type || '—'),
+            kycDetailRow('ID Number', kyc.id_number || '—'),
+            kycDetailRow('Submitted', kyc.submitted_at ? new Date(kyc.submitted_at).toLocaleDateString() : '—'),
+        );
 
         // Documents
         kycDocs.innerHTML = '';
         (kyc.documents || []).forEach((doc, i) => {
+            const href = kycMediaUrl(doc.file_url);
+            if (!href) return;
             const a = document.createElement('a');
-            a.href = doc.file_url;
+            a.href = href;
             a.target = '_blank';
+            a.rel = 'noopener';
             a.className = 'btn btn-sm btn-outline-secondary';
-            a.innerHTML = `<i class="bi bi-file-earmark-image me-1"></i>Doc ${i + 1} (${doc.doc_type || 'file'})`;
+            a.textContent = `Doc ${i + 1} (${doc.doc_type || 'file'})`;
             kycDocs.appendChild(a);
         });
         if (!kyc.documents || kyc.documents.length === 0) {
@@ -453,23 +479,28 @@ function showUserModal(userId) {
     kycDocsEl.innerHTML = '';
     // Show KYC ID image if available
     const kycImage = btn.getAttribute('data-kyc-image');
-    if (kycImage) {
-        const cleanImgPath = kycImage.startsWith('/') ? kycImage.substring(1) : kycImage;
-        const imgUrl = kycImage.startsWith('http') ? kycImage : `${API_BASE_URL}${MEDIA_ENDPOINT}${cleanImgPath}`;
+    const imgUrl = kycMediaUrl(kycImage);
+    if (imgUrl) {
         const imgWrap = document.createElement('a');
         imgWrap.href = imgUrl;
         imgWrap.target = '_blank';
         imgWrap.rel = 'noopener';
-        imgWrap.innerHTML = `<img src="${imgUrl}" style="height:60px;width:96px;object-fit:cover;border-radius:6px;border:1px solid #dee2e6;" alt="ID Image">`;
+        const img = document.createElement('img');
+        img.src = imgUrl;
+        img.alt = 'ID Image';
+        img.style.cssText = 'height:60px;width:96px;object-fit:cover;border-radius:6px;border:1px solid #dee2e6;';
+        imgWrap.appendChild(img);
         kycDocsEl.appendChild(imgWrap);
     }
     kycDocs.forEach(doc => {
-        const cleanDocPath = doc.url.startsWith('/') ? doc.url.substring(1) : doc.url;
+        const href = kycMediaUrl(doc.url);
+        if (!href) return;
         const link = document.createElement('a');
-        link.href = doc.url.startsWith('http') ? doc.url : `${API_BASE_URL}${MEDIA_ENDPOINT}${cleanDocPath}`;
+        link.href = href;
         link.target = '_blank';
+        link.rel = 'noopener';
         link.className = 'btn btn-xs btn-outline-secondary small p-1';
-        link.innerHTML = `<i class="bi bi-file-earmark-image"></i> ${doc.type}`;
+        link.textContent = doc.type || 'Document';
         kycDocsEl.appendChild(link);
     });
     

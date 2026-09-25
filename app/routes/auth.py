@@ -29,6 +29,11 @@ def _normalize_utc(dt: datetime | None) -> datetime | None:
     return dt.astimezone(timezone.utc)
 
 
+def _registration_open() -> bool:
+    return (os.environ.get('ALLOW_BOOTSTRAP_REGISTRATION', '').lower() == 'true'
+            and User.query.count() == 0)
+
+
 def _lockout_message(locked_until) -> str:
     locked_until = _normalize_utc(locked_until)
     return (
@@ -58,10 +63,14 @@ def login():
             (User.email == identifier) | (User.phone_number == identifier)
         ).first()
 
+        if user and (getattr(user, 'is_deleted', False) or user.is_active is False):
+            flash('This account is not active. Contact a superadmin if you think this is a mistake.', 'danger')
+            return render_template('auth/login.html', registration_open=_registration_open())
+
         now_utc = _utc_now()
         if user and user.locked_until and _normalize_utc(user.locked_until) > now_utc:
             flash(_lockout_message(user.locked_until), 'danger')
-            return render_template('auth/login.html', registration_open=(User.query.count() == 0))
+            return render_template('auth/login.html', registration_open=_registration_open())
 
         if user and _verify_password(user.password_hash or '', password):
             if user.failed_login_attempts or user.locked_until:
@@ -138,14 +147,16 @@ def login():
             # stay generic to avoid leaking which identifiers are registered.
             flash('Invalid email or password', 'danger')
 
-    return render_template('auth/login.html', registration_open=(User.query.count() == 0))
+    return render_template('auth/login.html', registration_open=_registration_open())
 
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
-    # Only the very first account may self-register (becomes superadmin).
-    # Every admin after that is created from the Users page by a superadmin.
-    if User.query.count() > 0:
+    # Only the very first account may self-register (becomes superadmin), and
+    # only while ALLOW_BOOTSTRAP_REGISTRATION=true is set — otherwise an empty
+    # database (e.g. after a reset) would hand superadmin to whoever registers
+    # first. Every admin after that is created from the Users page.
+    if not _registration_open():
         flash('Registration is closed. Ask your superadmin to create an account for you.', 'warning')
         return redirect(url_for('auth.login'))
 
@@ -183,23 +194,30 @@ def register():
     return render_template('auth/register.html')
 
 
-def _backend_post(path: str, payload: dict):
-    """POST to the Go API's public auth endpoints. Returns (ok, error_message)."""
+def _backend_post(path: str, payload: dict, want_body: bool = False):
+    """POST to the Go API's public auth endpoints. Returns (ok, error_message),
+    or (ok, error_message, body) when want_body is set."""
     api_base = current_app.config.get('API_BASE_URL', '').rstrip('/')
     try:
         resp = requests.post(f'{api_base}{path}', json=payload, timeout=10)
     except requests.RequestException as e:
         current_app.logger.error(f"[{path}] Backend request failed: {e}")
-        return False, 'Could not reach the server. Please try again in a moment.'
+        msg = 'Could not reach the server. Please try again in a moment.'
+        return (False, msg, {}) if want_body else (False, msg)
 
     if resp.ok:
+        if want_body:
+            try:
+                return True, None, resp.json()
+            except ValueError:
+                return True, None, {}
         return True, None
 
     try:
         error = resp.json().get('error', 'Something went wrong. Please try again.')
     except ValueError:
         error = 'Something went wrong. Please try again.'
-    return False, error
+    return (False, error, {}) if want_body else (False, error)
 
 
 @auth_bp.route('/forgot-password', methods=['GET', 'POST'])
@@ -231,8 +249,12 @@ def verify_otp():
         email = request.form.get('email', '').strip()
         otp = request.form.get('otp', '').strip()
 
-        ok, error = _backend_post('/api/v1/auth/verify-otp', {'email': email, 'otp': otp})
+        ok, error, body = _backend_post('/api/v1/auth/verify-otp', {'email': email, 'otp': otp}, want_body=True)
         if ok:
+            # The API returns a one-time token that reset-password requires —
+            # kept server-side in the session so it never appears in a URL.
+            session['reset_token'] = body.get('reset_token', '')
+            session['reset_email'] = email
             return redirect(url_for('auth.reset_password', email=email))
         flash(error, 'danger')
 
@@ -251,12 +273,19 @@ def reset_password():
             flash('Passwords do not match.', 'danger')
             return render_template('auth/reset_password.html', email=email)
 
+        if not session.get('reset_token') or session.get('reset_email') != email:
+            flash('Your reset session has expired. Please request a new OTP.', 'danger')
+            return redirect(url_for('auth.forgot_password'))
+
         ok, error = _backend_post('/api/v1/auth/reset-password', {
             'email': email,
+            'reset_token': session.get('reset_token'),
             'new_password': new_password,
             'confirm_password': confirm_password,
         })
         if ok:
+            session.pop('reset_token', None)
+            session.pop('reset_email', None)
             flash('Password reset successful. Please log in with your new password.', 'success')
             return redirect(url_for('auth.login'))
         flash(error, 'danger')
