@@ -1,5 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
+<style>
+    /* Pinned to the right edge so Approve/Reject stay visible without
+       scrolling the wide table sideways on smaller screens. */
+    .actions-col { position: sticky; right: 0; background: #fff; white-space: nowrap; box-shadow: -6px 0 6px -6px rgba(0,0,0,.15); }
+    thead .actions-col { background: var(--bs-table-bg, #f8f9fa); }
+</style>
 
 
 <div class="bg-white rounded-3 shadow-sm p-3 mb-4 d-flex flex-wrap align-items-center gap-4">
@@ -37,12 +43,16 @@
                     <th>KYC</th>
                     <th>Status</th>
                     <th>Submitted</th>
-                    <th>Actions</th>
+                    <th class="actions-col">Actions</th>
                 </tr>
             </thead>
             <tbody>
                 {% for app in applications %}
                 {% set applicant = users_by_id.get(app.user_id) %}
+                {# One normalised status drives both the badge and the buttons, so a
+                   row that reads "Pending" always has Approve/Reject (a NULL or
+                   differently-cased status used to show the badge but hide them). #}
+                {% set st = (app.status or 'pending')|string|lower %}
                 <tr>
                     <td class="ps-3 small">
                         <div class="fw-semibold">{{ applicant.full_name if applicant else '—' }}</div>
@@ -59,17 +69,17 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if app.status == 'approved' %}
+                        {% if st == 'approved' %}
                         <span class="badge bg-success-subtle text-success border border-success-subtle">Approved</span>
-                        {% elif app.status == 'rejected' %}
+                        {% elif st == 'rejected' %}
                         <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Rejected</span>
                         {% else %}
                         <span class="badge bg-warning-subtle text-warning border border-warning-subtle">Pending</span>
                         {% endif %}
                     </td>
                     <td class="small text-muted">{{ app.submitted_at.strftime('%d %b %Y %H:%M') if app.submitted_at else '—' }}</td>
-                    <td>
-                        {% if app.status == 'pending' %}
+                    <td class="actions-col">
+                        {% if st not in ('approved', 'rejected') %}
                         <div class="d-flex gap-1 align-items-center">
                             <form method="post" action="{{ url_for('sokoindex.approve_application', id=app.id) }}" class="d-inline"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-success">Approve</button>
