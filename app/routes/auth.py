@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from werkzeug.security import generate_password_hash, check_password_hash
 from app import db, limiter
 from app.routes.models import User, Store, UserRole
+from app.portals import portal_mismatch
 import jwt
 import bcrypt as _bcrypt
 import os
@@ -73,6 +74,13 @@ def login():
             return render_template('auth/login.html', registration_open=_registration_open())
 
         if user and _verify_password(user.password_hash or '', password):
+            # Right password, wrong portal: point them to theirs without
+            # starting a session here.
+            wrong_portal = portal_mismatch(user)
+            if wrong_portal:
+                flash(wrong_portal, 'warning')
+                return render_template('auth/login.html', registration_open=_registration_open())
+
             if user.failed_login_attempts or user.locked_until:
                 user.failed_login_attempts = 0
                 user.locked_until = None

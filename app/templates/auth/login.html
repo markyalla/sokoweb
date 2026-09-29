@@ -7,8 +7,13 @@
                 <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
                     <i class="bi bi-shield-lock" style="font-size: 1.5rem;"></i>
                 </div>
+                {% if portal == 'partner' %}
+                <h3 class="fw-bold text-dark">Partner Portal</h3>
+                <p class="text-muted">For shop owners and app administrators</p>
+                {% else %}
                 <h3 class="fw-bold text-dark">Super Admin</h3>
                 <p class="text-muted">Enter your credentials to access the panel</p>
+                {% endif %}
             </div>
             <form method="POST"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-floating mb-3">

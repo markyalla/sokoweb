@@ -50,6 +50,17 @@ def create_app():
                 session.clear()
                 g.user = None
 
+        # Superadmins and everyone else use different hostnames; a session on
+        # the wrong one is ended and sent back to that portal's login page.
+        from app.portals import portal_mismatch
+        if g.user and request.endpoint != 'static':
+            message = portal_mismatch(g.user)
+            if message:
+                session.clear()
+                g.user = None
+                flash(message, 'warning')
+                return redirect('/auth/login')
+
     # Captures the actual exception object for unhandled errors (Flask's
     # own signal, fired before the 500 response is finalized) so the audit
     # entry logged below can include a real message instead of just "500".
@@ -143,7 +154,9 @@ def create_app():
             }
             backend_jwt = jwt.encode(payload, app.config['SECRET_KEY'], algorithm="HS256")
 
+        from app.portals import current_portal
         return {
+            'portal': current_portal(),
             'current_user': user if user else type('AnonymousUser', (), {'is_authenticated': False})(),
             'backend_jwt': backend_jwt,
             'BACKEND_JWT': backend_jwt,
