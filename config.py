@@ -38,6 +38,9 @@ class Config:
     # SECURE is env-driven so local HTTP dev still works; set FLASK_ENV=production
     # (or COOKIE_SECURE=true) once served over HTTPS.
     SESSION_COOKIE_HTTPONLY = True
+    # Server-side sessions (app/sessions.py, when REDIS_URL is set) end
+    # after this much inactivity.
+    SESSION_IDLE_MINUTES = int(os.environ.get('SESSION_IDLE_MINUTES', '480'))
     SESSION_COOKIE_SAMESITE = 'Lax'
     SESSION_COOKIE_SECURE = os.environ.get('FLASK_ENV') == 'production' or os.environ.get('COOKIE_SECURE', '').lower() == 'true'
 

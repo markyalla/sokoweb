@@ -33,6 +33,10 @@ def create_app():
     if os.environ.get('FLASK_ENV') == 'production' and app.config['SECRET_KEY'] == 'dev-secret-key-123':
         raise RuntimeError('JWT_SECRET must be set to a strong secret in production')
 
+    # Opaque session id in the cookie, data kept server-side in Redis.
+    from app.sessions import init_sessions
+    init_sessions(app)
+
     db.init_app(app)
     csrf.init_app(app)
     limiter.init_app(app)

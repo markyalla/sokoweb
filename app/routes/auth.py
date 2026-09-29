@@ -3,6 +3,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from app import db, limiter
 from app.routes.models import User, Store, UserRole
 from app.portals import portal_mismatch, current_portal, MERCHANT_PORTAL
+from app.sessions import regenerate_session
 import jwt
 import bcrypt as _bcrypt
 import os
@@ -87,6 +88,7 @@ def login():
                 db.session.commit()
 
             session.clear()
+            regenerate_session(session)
             session['user_id'] = str(user.id)
 
             # Build and store the JWT for Go backend API calls
