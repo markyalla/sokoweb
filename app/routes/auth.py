@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from werkzeug.security import generate_password_hash, check_password_hash
 from app import db, limiter
 from app.routes.models import User, Store, UserRole
-from app.portals import portal_mismatch
+from app.portals import portal_mismatch, current_portal, MERCHANT_PORTAL
 import jwt
 import bcrypt as _bcrypt
 import os
@@ -121,7 +121,9 @@ def login():
             )
             roles = [r.role for r in user.roles]
             is_admin = any(r in roles for r in admin_roles)
-            if is_admin:
+            # On the merchant portal a sub-admin who also owns a shop goes to
+            # their shop, not the admin dashboard.
+            if is_admin and current_portal() != MERCHANT_PORTAL:
                 return redirect(url_for('dashboard.index'))
 
             owned_stores = Store.query.filter_by(owner_user_id=str(user.id)).all()

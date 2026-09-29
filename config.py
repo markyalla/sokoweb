@@ -57,11 +57,12 @@ class Config:
     SMTP_PASS = os.environ.get('SMTP_PASS', '')
     SMTP_FROM = os.environ.get('SMTP_FROM', '')
 
-    # Portal separation by hostname (see app/portals.py). Superadmins use
-    # SUPERADMIN_HOST; sub-admins and shop owners use PORTAL_HOST. Leave
-    # either unset to disable (local development).
+    # Portal separation by hostname (see app/portals.py): superadmins use
+    # SUPERADMIN_HOST, sub-admins PORTAL_HOST, shop owners MERCHANT_HOST.
+    # Leave any unset to disable (local development).
     SUPERADMIN_HOST = os.environ.get('SUPERADMIN_HOST', '')
     PORTAL_HOST = os.environ.get('PORTAL_HOST', '')
+    MERCHANT_HOST = os.environ.get('MERCHANT_HOST', '')
 
     SQLALCHEMY_DATABASE_URI = get_uri('sokoaccount')
     SQLALCHEMY_BINDS = {

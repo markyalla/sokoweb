@@ -1,4 +1,4 @@
-from flask import Flask, session, g, request, got_request_exception, flash, redirect
+from flask import Flask, session, g, request, got_request_exception, flash, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import CSRFProtect
 from flask_limiter import Limiter
@@ -50,9 +50,10 @@ def create_app():
                 session.clear()
                 g.user = None
 
-        # Superadmins and everyone else use different hostnames; a session on
-        # the wrong one is ended and sent back to that portal's login page.
-        from app.portals import portal_mismatch
+        # Superadmins, sub-admins and shop owners each use their own hostname;
+        # a session on the wrong one is ended and sent back to the login page,
+        # and pages that don't belong on this portal go to its home page.
+        from app.portals import portal_mismatch, page_not_on_portal, home_endpoint
         if g.user and request.endpoint != 'static':
             message = portal_mismatch(g.user)
             if message:
@@ -60,6 +61,8 @@ def create_app():
                 g.user = None
                 flash(message, 'warning')
                 return redirect('/auth/login')
+            if page_not_on_portal(request.blueprint):
+                return redirect(url_for(home_endpoint()))
 
     # Captures the actual exception object for unhandled errors (Flask's
     # own signal, fired before the 500 response is finalized) so the audit
